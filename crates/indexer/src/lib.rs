@@ -1,8 +1,12 @@
+pub mod api;
 pub mod exec;
 pub mod methods;
 pub mod order;
 pub mod pool;
 pub mod providers;
+
+// API (builders)
+pub use api::{EngineBuilder, TraceFilterBuilder};
 
 // Core types
 pub use exec::{EthereumIndexer, OrderingKey, Range, WorkItem};
