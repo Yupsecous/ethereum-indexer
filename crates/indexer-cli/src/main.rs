@@ -8,38 +8,12 @@ use indexer::{
     order_by_range,
 };
 
-#[derive(Parser)]
-#[command(name = "Transaction Trace Analyzer")]
-#[command(about = "Analyzes non-internal transactions using multiple RPC endpoints")]
-pub struct Config {
-    #[arg(long = "rpc", required = true)]
-    pub rpcs: Vec<String>,
-
-    #[arg(long = "target-address")]
-    pub target_address: String,
-
-    #[arg(long = "start-block")]
-    pub start_block: u64,
-
-    #[arg(long = "end-block")]
-    pub end_block: u64,
-
-    #[arg(long = "chunk-size", default_value = "50")]
-    pub chunk_size: u64,
-
-    #[arg(long = "parallel-requests-per-rpc", default_value = "5")]
-    pub parallel_requests_per_rpc: usize,
-
-    // kept for flag compatibility (unused here)
-    #[arg(long = "max-queue-size", default_value = "100")]
-    pub max_queue_size: usize,
-}
+mod cli;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let cfg = Config::parse();
+    let cfg = cli::Config::parse();
 
-    // Parse inputs
     let urls: Vec<Url> = cfg
         .rpcs
         .iter()
@@ -108,7 +82,7 @@ async fn main() -> anyhow::Result<()> {
                         let pct = completed_blocks as f64 / total_blocks as f64 * 100.0;
 
                         println!(
-                            "✓ Chunk {}-{} | {} txns | {}/{} ({:.1}%) | {:.0} blk/s | {:.0} tx/s",
+                            "✅ Chunk {}-{} | {} txns | {}/{} ({:.1}%) | {:.0} blk/s | {:.0} tx/s",
                             range.from,
                             range.to,
                             n,
@@ -119,15 +93,14 @@ async fn main() -> anyhow::Result<()> {
                             total_txns as f64 / elapsed
                         );
                     }
-                    Err(e) => eprintln!("✗ decode error: {e}"),
+                    Err(e) => eprintln!("❌ decode error: {e}"),
                 },
-                Err(e) => eprintln!("✗ {e}"),
+                Err(e) => eprintln!("❌ {e}"),
             }
             (completed_blocks, total_txns)
         })
         .await;
 
-    // Final stats
     let elapsed = start.elapsed().as_secs_f64();
     println!("\n🏁 === FINAL RESULTS ===");
     println!(
@@ -145,7 +118,6 @@ async fn main() -> anyhow::Result<()> {
         total_txns as f64 / completed_blocks as f64
     );
 
-    // RPC stats
     println!("\n🧮 === RPC STATISTICS ===");
     for (i, (url, s)) in urls.iter().zip(indexer.stats().iter()).enumerate() {
         let (req, ok, avg) = s.snapshot();
