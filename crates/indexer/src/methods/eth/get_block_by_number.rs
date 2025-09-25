@@ -1,4 +1,7 @@
-use crate::exec::{OrderingKey, WorkItem};
+use crate::{
+    Range,
+    exec::{OrderingKey, WorkItem},
+};
 use alloy::rpc::types::eth::{Block, BlockNumberOrTag};
 use serde_json::Value;
 
@@ -13,10 +16,16 @@ impl BlockByNumberPlan {
         self.numbers
             .iter()
             .map(|n| {
+                let key = match *n {
+                    BlockNumberOrTag::Number(num) => {
+                        OrderingKey::Range(Range { from: num, to: num })
+                    }
+                    _ => OrderingKey::None, // tags cannot be strictly ordered
+                };
                 Ok(WorkItem {
                     method: "eth_getBlockByNumber",
                     params: vec![serde_json::to_value(n)?, serde_json::to_value(self.full)?],
-                    key: OrderingKey::None,
+                    key,
                 })
             })
             .collect()
