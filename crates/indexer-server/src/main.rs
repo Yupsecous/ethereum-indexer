@@ -1,7 +1,12 @@
 mod handlers;
 mod types;
 
+use alloy::transports::http::reqwest::Url;
 use axum::{Router, routing::get};
+use handlers::{
+    get_transaction_by_hash, get_transaction_receipt, ping, trace_filter_no_address,
+    trace_filter_with_address,
+};
 use indexer::EngineBuilder;
 use std::sync::Arc;
 use tokio::net::TcpListener;
@@ -11,13 +16,16 @@ use tracing::info;
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
-    let rpc_urls: Vec<_> = std::env::var("RPC_URLS")
+    let rpc_urls: Vec<Url> = std::env::var("RPC_URLS")
         .unwrap_or_else(|_| "https://eth.drpc.org".to_string())
         .split(',')
         .map(|url| url.trim().parse())
         .collect::<Result<Vec<_>, _>>()?;
 
-    info!("Building engine with {} RPC endpoints", rpc_urls.len());
+    info!("Building Engine with {} RPC endpoints", rpc_urls.len(),);
+    for url in 0..rpc_urls.len() {
+        info!("- {}", rpc_urls[url]);
+    }
 
     let engine = EngineBuilder::new()
         .rpc_urls(rpc_urls)
@@ -28,11 +36,19 @@ async fn main() -> anyhow::Result<()> {
     let shared_engine = Arc::new(engine);
 
     let app = Router::new()
-        .route("/ping", get(handlers::ping))
-        .route("/api/trace/filter", get(handlers::trace_filter_no_address))
+        .route("/ping", get(ping))
+        .route("/api/trace/filter", get(trace_filter_no_address))
         .route(
             "/api/trace/filter/{address}",
-            get(handlers::trace_filter_with_address),
+            get(trace_filter_with_address),
+        )
+        .route(
+            "/api/eth/getTransactionByHash/{hash}",
+            get(get_transaction_by_hash),
+        )
+        .route(
+            "/api/eth/getTransactionReceipt/{hash}",
+            get(get_transaction_receipt),
         )
         .with_state(shared_engine);
 

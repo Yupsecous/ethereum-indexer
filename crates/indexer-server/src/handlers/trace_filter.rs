@@ -1,4 +1,4 @@
-use crate::types::{PingResponse, TraceFilterQuery};
+use crate::types::TraceFilterQuery;
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -8,12 +8,6 @@ use futures::StreamExt;
 use indexer::{EthereumIndexer, TraceFilterBuilder, TraceFilterPlan, order_by_range};
 use std::sync::Arc;
 use tracing::info;
-
-pub async fn ping() -> Json<PingResponse> {
-    Json(PingResponse {
-        message: "pong!".to_string(),
-    })
-}
 
 pub async fn trace_filter_no_address(
     State(engine): State<Arc<EthereumIndexer>>,
@@ -96,8 +90,6 @@ async fn trace_filter_impl(
             }
         }
     }
-
-    // results.reverse();
 
     info!("Returning {} filtered traces", results.len());
     Ok(Json(serde_json::to_value(results).unwrap()))
