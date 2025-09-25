@@ -38,7 +38,10 @@ async fn trace_filter_impl(
     let start_block = params.startblock.unwrap_or(0);
     let end_block = params.endblock.unwrap_or(start_block + 100);
 
-    info!("trace_filter request: address={:?}, start={}, end={}", address, start_block, end_block);
+    info!(
+        "trace_filter request: address={:?}, start={}, end={}",
+        address, start_block, end_block
+    );
 
     if end_block < start_block {
         return Err(StatusCode::BAD_REQUEST);
@@ -78,7 +81,7 @@ async fn trace_filter_impl(
         match item {
             Ok((_range, data)) => {
                 if let Ok(traces) = TraceFilterPlan::decode(data) {
-                    // Filter for non-internal transactions only (like CLI)
+                    // Filter for non-internal transactions only
                     let filtered_traces: Vec<_> = traces
                         .into_iter()
                         .filter(|t| t.trace.trace_address.is_empty())
@@ -93,6 +96,8 @@ async fn trace_filter_impl(
             }
         }
     }
+
+    // results.reverse();
 
     info!("Returning {} filtered traces", results.len());
     Ok(Json(serde_json::to_value(results).unwrap()))

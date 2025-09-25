@@ -29,8 +29,11 @@ async fn main() -> anyhow::Result<()> {
 
     let app = Router::new()
         .route("/ping", get(handlers::ping))
-        .route("/api/trace-filter", get(handlers::trace_filter_no_address))
-        .route("/api/trace-filter/{address}", get(handlers::trace_filter_with_address))
+        .route("/api/trace/filter", get(handlers::trace_filter_no_address))
+        .route(
+            "/api/trace/filter/{address}",
+            get(handlers::trace_filter_with_address),
+        )
         .with_state(shared_engine);
 
     let port = std::env::var("PORT")
