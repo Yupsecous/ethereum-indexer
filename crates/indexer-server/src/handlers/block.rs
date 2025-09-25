@@ -1,5 +1,4 @@
 use crate::types::BlockByNumberQuery;
-use alloy::rpc::types::eth::BlockNumberOrTag;
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -19,9 +18,6 @@ pub async fn get_block_by_number(
         "getBlockByNumber request: number={}, params={:?}",
         number, params
     );
-
-    // Parse the block number parameter
-    let block_number = parse_block_number(&number)?;
 
     let mut builder = BlockByNumberBuilder::new();
 
@@ -44,8 +40,19 @@ pub async fn get_block_by_number(
 
         builder = builder.range(from, to);
     } else {
-        // Single block query
-        builder = builder.push(block_number);
+        // Single block query - use specific builder methods for tags
+        builder = match number.as_str() {
+            "latest" => builder.latest(),
+            "earliest" => builder.earliest(),
+            "pending" => builder.pending(),
+            "safe" => builder.safe(),
+            "finalized" => builder.finalized(),
+            _ => {
+                // Parse numeric or hex block number
+                let block_number = parse_numeric_block(&number)?;
+                builder.push_number(block_number)
+            }
+        };
     }
 
     // Set full transactions mode (default true, can be overridden by query param)
@@ -116,28 +123,20 @@ pub async fn get_block_by_number(
     }
 }
 
-/// Parse block number from string (supports numeric, "latest", "earliest", "pending")
-fn parse_block_number(s: &str) -> Result<BlockNumberOrTag, StatusCode> {
-    match s {
-        "latest" => Ok(BlockNumberOrTag::Latest),
-        "earliest" => Ok(BlockNumberOrTag::Earliest),
-        "pending" => Ok(BlockNumberOrTag::Pending),
-        _ => {
-            // Try to parse as numeric
-            match s.parse::<u64>() {
-                Ok(num) => Ok(BlockNumberOrTag::Number(num)),
-                Err(_) => {
-                    // Try hex format (0x...)
-                    if s.starts_with("0x") || s.starts_with("0X") {
-                        match u64::from_str_radix(&s[2..], 16) {
-                            Ok(num) => Ok(BlockNumberOrTag::Number(num)),
-                            Err(_) => Err(StatusCode::BAD_REQUEST),
-                        }
-                    } else {
-                        Err(StatusCode::BAD_REQUEST)
-                    }
-                }
-            }
+/// Parse numeric or hex block number from string
+fn parse_numeric_block(s: &str) -> Result<u64, StatusCode> {
+    // Try to parse as numeric first
+    if let Ok(num) = s.parse::<u64>() {
+        return Ok(num);
+    }
+
+    // Try hex format (0x...)
+    if s.starts_with("0x") || s.starts_with("0X") {
+        match u64::from_str_radix(&s[2..], 16) {
+            Ok(num) => Ok(num),
+            Err(_) => Err(StatusCode::BAD_REQUEST),
         }
+    } else {
+        Err(StatusCode::BAD_REQUEST)
     }
 }
