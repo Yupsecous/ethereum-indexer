@@ -25,7 +25,7 @@ impl TraceFilterBuilder {
             mode: TraceFilterMode::Union,
             after: None,
             count: None,
-            max_span: 100_000,
+            max_span: 1_000_000,
             max_chunk: 10_000,
         }
     }
