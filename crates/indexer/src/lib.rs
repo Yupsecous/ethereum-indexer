@@ -17,6 +17,6 @@ pub use order::{chunk_range, order_by_range};
 pub use providers::{build_rpc_clients, build_rpc_clients_with_retry};
 
 // Method planners
-pub use methods::trace_filter::TraceFilterPlan;
-pub use methods::tx_by_hash::TxByHashPlan;
-pub use methods::tx_receipt::TxReceiptPlan;
+pub use methods::trace::filter::TraceFilterPlan;
+pub use methods::eth::get_transaction_by_hash::TxByHashPlan;
+pub use methods::eth::get_transaction_receipt::TxReceiptPlan;

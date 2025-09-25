@@ -1,3 +1,2 @@
-pub mod trace_filter;
-pub mod tx_by_hash;
-pub mod tx_receipt;
+pub mod trace;
+pub mod eth;
