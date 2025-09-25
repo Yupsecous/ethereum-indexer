@@ -18,9 +18,8 @@ impl TxReceiptPlan {
             .iter()
             .map(|h| WorkItem {
                 method: "eth_getTransactionReceipt",
-                // params = [ txHash ]
-                params: serde_json::json!([h]),
-                // No block-range ordering for receipts; keep as `None`.
+                // Reminder that B256 serializes to "0x..." automatically
+                params: serde_json::json!(h),
                 key: OrderingKey::None,
             })
             .collect()

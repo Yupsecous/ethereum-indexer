@@ -15,7 +15,7 @@ impl TxByHashPlan {
             .iter()
             .map(|h| WorkItem {
                 method: "eth_getTransactionByHash",
-                params: serde_json::json!([h]),
+                params: serde_json::json!(h),
                 key: OrderingKey::None,
             })
             .collect()
