@@ -15,7 +15,10 @@ pub async fn get_block_by_number(
     Path(number): Path<String>,
     Query(params): Query<BlockByNumberQuery>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    info!("getBlockByNumber request: number={}, params={:?}", number, params);
+    info!(
+        "getBlockByNumber request: number={}, params={:?}",
+        number, params
+    );
 
     // Parse the block number parameter
     let block_number = parse_block_number(&number)?;
