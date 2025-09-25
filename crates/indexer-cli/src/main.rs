@@ -39,15 +39,25 @@ async fn main() -> anyhow::Result<()> {
             let target = cfg.target_address.as_ref().unwrap();
             info!(
                 "Blocks: {} to {} (chunk size: {})",
-                cfg.start_block, cfg.end_block, cfg.chunk_size
+                cfg.from.unwrap(),
+                cfg.to.unwrap(),
+                cfg.chunk_size
             );
             info!("Target address: {}", target);
         }
         cli::Method::GetBlockByNumber => {
-            info!(
-                "Blocks: {} to {} (chunk size: {})",
-                cfg.start_block, cfg.end_block, cfg.chunk_size
-            );
+            if let Some(tag) = &cfg.tag {
+                info!("Block tag: {}", tag);
+            } else if !cfg.numbers.is_empty() {
+                info!("Block numbers: {:?}", cfg.numbers);
+            } else {
+                info!(
+                    "Blocks: {} to {} (chunk size: {})",
+                    cfg.from.unwrap(),
+                    cfg.to.unwrap(),
+                    cfg.chunk_size
+                );
+            }
             if cfg.full {
                 info!("Full transactions: enabled");
             }

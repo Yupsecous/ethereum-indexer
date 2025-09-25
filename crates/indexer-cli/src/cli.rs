@@ -28,11 +28,17 @@ pub struct Config {
     #[arg(long = "hashes", required_if_eq_any([("method", "get-transaction-by-hash"), ("method", "get-transaction-receipt")]))]
     pub hashes: Vec<String>,
 
-    #[arg(long = "start-block")]
-    pub start_block: u64,
+    #[arg(long = "tag", conflicts_with_all = ["from", "to", "numbers"])]
+    pub tag: Option<String>,
 
-    #[arg(long = "end-block")]
-    pub end_block: u64,
+    #[arg(long = "numbers", conflicts_with_all = ["from", "to", "tag"])]
+    pub numbers: Vec<u64>,
+
+    #[arg(long = "from", required_unless_present_any = ["tag", "numbers"])]
+    pub from: Option<u64>,
+
+    #[arg(long = "to", required_unless_present_any = ["tag", "numbers"])]
+    pub to: Option<u64>,
 
     #[arg(long = "chunk-size", default_value = "50")]
     pub chunk_size: u64,
