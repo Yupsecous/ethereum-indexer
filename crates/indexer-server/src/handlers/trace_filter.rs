@@ -67,7 +67,15 @@ async fn trace_filter_impl(
         }
     };
 
-    let stream = order_by_range(engine.run(plan.plan()), plan.range.from);
+    let work_items = match plan.plan() {
+        Ok(items) => items,
+        Err(e) => {
+            info!("Work item creation failed: {}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    let stream = order_by_range(engine.run(work_items), plan.range.from);
     let mut results = Vec::new();
 
     tokio::pin!(stream);

@@ -6,7 +6,9 @@ pub mod pool;
 pub mod providers;
 
 // API (builders)
-pub use api::{EngineBuilder, TraceFilterBuilder, TxByHashBuilder, TxReceiptBuilder};
+pub use api::{
+    BlockByNumberBuilder, EngineBuilder, TraceFilterBuilder, TxByHashBuilder, TxReceiptBuilder,
+};
 
 // Core types
 pub use exec::{EthereumIndexer, OrderingKey, Range, WorkItem};
@@ -17,6 +19,7 @@ pub use order::{chunk_range, order_by_range};
 pub use providers::{build_rpc_clients, build_rpc_clients_with_retry};
 
 // Method planners
+pub use methods::eth::get_block_by_number::BlockByNumberPlan;
 pub use methods::eth::get_transaction_by_hash::TxByHashPlan;
 pub use methods::eth::get_transaction_receipt::TxReceiptPlan;
 pub use methods::trace::filter::TraceFilterPlan;

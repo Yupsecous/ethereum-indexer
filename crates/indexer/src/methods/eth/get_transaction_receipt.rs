@@ -13,14 +13,16 @@ impl TxReceiptPlan {
     /// Emit one JSON-RPC call per hash: `eth_getTransactionReceipt`.
     /// We use `OrderingKey::Index(i)`-like behavior by just preserving slice order via `None`
     /// or you can add an Index key to keep strict ordering if you want.
-    pub fn plan(&self) -> Vec<WorkItem> {
+    pub fn plan(&self) -> anyhow::Result<Vec<WorkItem>> {
         self.hashes
             .iter()
-            .map(|h| WorkItem {
-                method: "eth_getTransactionReceipt",
-                // Reminder that B256 serializes to "0x..." automatically
-                params: serde_json::json!(h),
-                key: OrderingKey::None,
+            .map(|h| {
+                Ok(WorkItem {
+                    method: "eth_getTransactionReceipt",
+                    // B256 serializes to "0x..." automatically via serde
+                    params: vec![serde_json::to_value(h)?],
+                    key: OrderingKey::None,
+                })
             })
             .collect()
     }

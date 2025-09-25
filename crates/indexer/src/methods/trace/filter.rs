@@ -19,7 +19,7 @@ pub struct TraceFilterPlan {
 }
 
 impl TraceFilterPlan {
-    pub fn plan(&self) -> Vec<WorkItem> {
+    pub fn plan(&self) -> anyhow::Result<Vec<WorkItem>> {
         let mode = self.mode.unwrap_or(TraceFilterMode::Union);
         chunk_range(self.range, self.chunk_size)
             .map(|r| {
@@ -32,11 +32,11 @@ impl TraceFilterPlan {
                     after: self.after,
                     count: self.count,
                 };
-                WorkItem {
+                Ok(WorkItem {
                     method: "trace_filter",
-                    params: serde_json::to_value(filter).expect("serialize filter"),
+                    params: vec![serde_json::to_value(filter)?],
                     key: OrderingKey::Range(r),
-                }
+                })
             })
             .collect()
     }

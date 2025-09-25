@@ -10,13 +10,15 @@ pub struct TxByHashPlan {
 }
 
 impl TxByHashPlan {
-    pub fn plan(&self) -> Vec<WorkItem> {
+    pub fn plan(&self) -> anyhow::Result<Vec<WorkItem>> {
         self.hashes
             .iter()
-            .map(|h| WorkItem {
-                method: "eth_getTransactionByHash",
-                params: serde_json::json!(h),
-                key: OrderingKey::None,
+            .map(|h| {
+                Ok(WorkItem {
+                    method: "eth_getTransactionByHash",
+                    params: vec![serde_json::to_value(h)?],
+                    key: OrderingKey::None,
+                })
             })
             .collect()
     }

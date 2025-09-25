@@ -1,9 +1,9 @@
 pub mod engine;
-pub mod trace_filter;
-pub mod tx_by_hash;
-pub mod tx_receipt;
+pub mod eth;
+pub mod trace;
 
 pub use engine::EngineBuilder;
-pub use trace_filter::TraceFilterBuilder;
-pub use tx_by_hash::TxByHashBuilder;
-pub use tx_receipt::TxReceiptBuilder;
+pub use eth::get_block_by_number::BlockByNumberBuilder;
+pub use eth::get_transaction_by_hash::TxByHashBuilder;
+pub use eth::get_transaction_receipt::TxReceiptBuilder;
+pub use trace::filter::TraceFilterBuilder;
