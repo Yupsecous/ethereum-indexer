@@ -63,14 +63,14 @@ impl ProviderPool {
     pub async fn rr_request(
         &self,
         method: &'static str,
-        params: serde_json::Value,
+        params: Vec<serde_json::Value>,
     ) -> anyhow::Result<serde_json::Value> {
         let idx = self.rr.fetch_add(1, Ordering::Relaxed) % self.clients.len();
         let permit = self.permits[idx].acquire().await?;
         let client = &self.clients[idx];
 
         let t0 = Instant::now();
-        let res = client.request(method, [params]).await;
+        let res = client.request(method, params).await;
         drop(permit);
 
         self.stats[idx].record(res.is_ok(), t0.elapsed());

@@ -31,7 +31,15 @@ pub async fn get_transaction_by_hash(
         }
     };
 
-    let mut stream = engine.run(plan.plan());
+    let work_items = match plan.plan() {
+        Ok(items) => items,
+        Err(e) => {
+            info!("Work item creation failed: {}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    let mut stream = engine.run(work_items);
 
     if let Some(result) = stream.next().await {
         match result {

@@ -4,7 +4,7 @@ mod types;
 use alloy::transports::http::reqwest::Url;
 use axum::{Router, routing::get};
 use handlers::{
-    get_transaction_by_hash, get_transaction_receipt, ping, trace_filter_no_address,
+    get_block_by_number, get_transaction_by_hash, get_transaction_receipt, ping, trace_filter_no_address,
     trace_filter_with_address,
 };
 use indexer::EngineBuilder;
@@ -41,6 +41,10 @@ async fn main() -> anyhow::Result<()> {
         .route(
             "/api/trace/filter/{address}",
             get(trace_filter_with_address),
+        )
+        .route(
+            "/api/eth/getBlockByNumber/{number}",
+            get(get_block_by_number),
         )
         .route(
             "/api/eth/getTransactionByHash/{hash}",

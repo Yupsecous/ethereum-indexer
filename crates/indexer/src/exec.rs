@@ -16,7 +16,7 @@ pub enum OrderingKey {
 
 pub struct WorkItem {
     pub method: &'static str,
-    pub params: serde_json::Value,
+    pub params: Vec<serde_json::Value>,
     pub key: OrderingKey,
 }
 

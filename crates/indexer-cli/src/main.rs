@@ -60,7 +60,8 @@ async fn main() -> anyhow::Result<()> {
     let start = std::time::Instant::now();
 
     // Execute (raw path) + order by range
-    let (completed_blocks, total_txns) = order_by_range(indexer.run(plan.plan()), cfg.start_block)
+    let work_items = plan.plan()?;
+    let (completed_blocks, total_txns) = order_by_range(indexer.run(work_items), cfg.start_block)
         .fold((0u64, 0usize), |(mut completed_blocks, mut total_txns), res| async move {
             match res {
                 Ok((range, value)) => match TraceFilterPlan::decode(value) {
