@@ -1,2 +1,2 @@
-pub mod trace;
 pub mod eth;
+pub mod trace;

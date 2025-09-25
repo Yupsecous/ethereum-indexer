@@ -1,3 +1,4 @@
+use alloy::primitives::B256;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -7,7 +8,6 @@ use futures::StreamExt;
 use indexer::{EthereumIndexer, TxReceiptBuilder, TxReceiptPlan};
 use std::sync::Arc;
 use tracing::info;
-use alloy::primitives::B256;
 
 pub async fn get_transaction_receipt(
     State(engine): State<Arc<EthereumIndexer>>,
