@@ -1,11 +1,14 @@
 use crate::cli;
-use alloy::{primitives::{Address, B256}, rpc::types::eth::BlockNumberOrTag};
+use alloy::{
+    primitives::{Address, B256},
+    rpc::types::eth::BlockNumberOrTag,
+};
 use futures::StreamExt;
 use indexer::{
-    BlockByNumberPlan, EthereumIndexer, Range, TraceFilterBuilder, TraceFilterPlan,
-    TxByHashPlan, TxReceiptPlan, order_by_range,
+    BlockByNumberPlan, EthereumIndexer, Range, TraceFilterBuilder, TraceFilterPlan, TxByHashPlan,
+    TxReceiptPlan, order_by_range,
 };
-use tracing::{info, error};
+use tracing::{error, info};
 
 pub async fn run_trace_filter(
     cfg: cli::Config,
@@ -226,7 +229,10 @@ fn print_progress(
 fn print_final_results(completed_blocks: u64, total_items: usize, start: std::time::Instant) {
     let elapsed = start.elapsed().as_secs_f64();
     info!("=== FINAL RESULTS ===");
-    info!("Completed: {} blocks/items, {} found", completed_blocks, total_items);
+    info!(
+        "Completed: {} blocks/items, {} found",
+        completed_blocks, total_items
+    );
     info!("Time: {:.2}s", elapsed);
     info!(
         "Performance: {:.0} items/sec",
