@@ -1,12 +1,9 @@
 use crate::cli;
-use alloy::{
-    primitives::{Address, B256},
-    rpc::types::eth::BlockNumberOrTag,
-};
+use alloy::primitives::{Address, B256};
 use futures::StreamExt;
 use indexer::{
-    BlockByNumberPlan, EthereumIndexer, Range, TraceFilterBuilder, TraceFilterPlan, TxByHashPlan,
-    TxReceiptPlan, order_by_range,
+    BlockByNumberBuilder, EthereumIndexer, Range, TraceFilterBuilder, TraceFilterPlan,
+    TxByHashPlan, TxReceiptPlan, order_by_range,
 };
 use tracing::{error, info};
 
@@ -17,15 +14,18 @@ pub async fn run_trace_filter(
 ) -> anyhow::Result<()> {
     let target: Address = cfg.target_address.as_ref().unwrap().parse()?;
 
+    let start_block = cfg.from.unwrap();
+    let end_block = cfg.to.unwrap();
+
     let plan = TraceFilterBuilder::new()
         .target(target)
-        .start_block(cfg.start_block)
-        .end_block(cfg.end_block)
+        .start_block(start_block)
+        .end_block(end_block)
         .chunk_size(cfg.chunk_size)
         .limits(1_000_000, 10_000)
         .plan()?;
 
-    let total_blocks = cfg.end_block - cfg.start_block + 1;
+    let total_blocks = end_block - start_block + 1;
     let work_items = plan.plan()?;
 
     let (completed_blocks, total_txns) = order_by_range(indexer.run(work_items), plan.range.from)
@@ -74,14 +74,33 @@ pub async fn run_get_block_by_number(
     indexer: &EthereumIndexer,
     start: std::time::Instant,
 ) -> anyhow::Result<()> {
-    let plan = BlockByNumberPlan {
-        numbers: (cfg.start_block..=cfg.end_block)
-            .map(|n| BlockNumberOrTag::Number(n))
-            .collect(),
-        full: cfg.full,
+    let mut builder = BlockByNumberBuilder::new().full(cfg.full);
+
+    let total_blocks = if let Some(tag) = cfg.tag {
+        builder = match tag.as_str() {
+            "latest" => builder.latest(),
+            "earliest" => builder.earliest(),
+            "pending" => builder.pending(),
+            "safe" => builder.safe(),
+            "finalized" => builder.finalized(),
+            _ => return Err(anyhow::anyhow!("Invalid tag: {}", tag)),
+        };
+        1 // Single block for tags
+    } else if !cfg.numbers.is_empty() {
+        let count = cfg.numbers.len();
+        builder = cfg
+            .numbers
+            .into_iter()
+            .fold(builder, |b, n| b.push_number(n));
+        count as u64
+    } else {
+        let from_block = cfg.from.unwrap();
+        let to_block = cfg.to.unwrap();
+        builder = builder.range(from_block, to_block);
+        to_block - from_block + 1
     };
 
-    let total_blocks = cfg.end_block - cfg.start_block + 1;
+    let plan = builder.plan()?;
     let work_items = plan.plan()?;
 
     let (completed_blocks, total_items) = indexer
@@ -90,7 +109,7 @@ pub async fn run_get_block_by_number(
             (0u64, 0usize),
             |(mut completed_blocks, mut total_items), res| async move {
                 match res {
-                    Ok((_key, value)) => match BlockByNumberPlan::decode(value) {
+                    Ok((_key, value)) => match indexer::BlockByNumberPlan::decode(value) {
                         Ok(Some(block)) => {
                             total_items += 1;
                             completed_blocks += 1;
