@@ -25,7 +25,10 @@ async fn main() -> anyhow::Result<()> {
 
     info!("Starting {:?} benchmark", cfg.method);
     info!("RPCs: {}", urls.len());
-    info!("Parallel requests per RPC: {}", cfg.parallel_requests_per_rpc);
+    info!(
+        "Parallel requests per RPC: {}",
+        cfg.parallel_requests_per_rpc
+    );
     info!(
         "Total parallel requests: {}",
         urls.len() * cfg.parallel_requests_per_rpc
@@ -92,4 +95,3 @@ fn print_rpc_stats(urls: &[Url], indexer: &EthereumIndexer) {
         );
     }
 }
-
