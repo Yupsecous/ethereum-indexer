@@ -1,4 +1,4 @@
-use crate::methods::tx_by_hash::TxByHashPlan;
+use crate::methods::eth::get_transaction_by_hash::TxByHashPlan;
 use alloy::primitives::B256;
 use std::collections::HashSet;
 

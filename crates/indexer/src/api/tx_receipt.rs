@@ -1,4 +1,4 @@
-use crate::methods::tx_receipt::TxReceiptPlan;
+use crate::methods::eth::get_transaction_receipt::TxReceiptPlan;
 use alloy::primitives::B256;
 
 #[derive(Clone, Debug)]

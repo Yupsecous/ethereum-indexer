@@ -1,4 +1,4 @@
-use crate::{exec::Range, methods::trace_filter::TraceFilterPlan};
+use crate::{exec::Range, methods::trace::filter::TraceFilterPlan};
 use alloy::{primitives::Address, rpc::types::trace::filter::TraceFilterMode};
 
 pub struct TraceFilterBuilder {
