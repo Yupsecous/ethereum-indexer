@@ -145,17 +145,17 @@ cargo run -p indexer-server
 
 **General Logs:**
 ```bash
-curl "http://localhost:3000/api/eth/getLogs?from=18000000&to=18000100&addresses=0xA0b86a33E6441b73aE6b5b0e48e95AD1A756b3a5"
+curl "http://localhost:3000/api/eth/getLogs?from=4961600&to=4961700&addresses=0xA0b86a33E6441b73aE6b5b0e48e95AD1A756b3a5"
 ```
 
 **ERC-20 Wallet Transfers:**
 ```bash
-curl "http://localhost:3000/api/eth/getLogs/erc20/wallet/0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045?from=18000000&to=18000100"
+curl "http://localhost:3000/api/eth/getLogs/erc20/wallet/0xaa7a9ca87d3694b5755f213b5d04094b8d0f0a6f?from=4961600&to=4961700"
 ```
 
 **ERC-20 Token Transfers:**
 ```bash
-curl "http://localhost:3000/api/eth/getLogs/erc20/token/0xA0b86a33E6441b73aE6b5b0e48e95AD1A756b3a5?from=18000000&to=18000100"
+curl "http://localhost:3000/api/eth/getLogs/erc20/token/0xaa7a9ca87d3694b5755f213b5d04094b8d0f0a6f?from=4961600&to=4961700"
 ```
 
 ### Response Format
