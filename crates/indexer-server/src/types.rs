@@ -35,3 +35,33 @@ pub struct BalanceResponse {
     pub balance_wei: String,
     pub balance_eth: String,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct GetLogsQuery {
+    pub from: Option<u64>,
+    pub to: Option<u64>,
+    pub addresses: Vec<String>,
+    pub topics: Vec<String>,
+    pub chunk_size: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Erc20WalletQuery {
+    pub from: Option<u64>,
+    pub to: Option<u64>,
+    pub tokens: Vec<String>,
+    pub chunk_size: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Erc20TokenQuery {
+    pub from: Option<u64>,
+    pub to: Option<u64>,
+    pub chunk_size: Option<u64>,
+}
+
+#[derive(Serialize)]
+pub struct LogsResponse {
+    pub logs: Vec<serde_json::Value>,
+    pub metadata: serde_json::Value,
+}
