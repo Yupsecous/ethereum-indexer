@@ -6,7 +6,7 @@ use alloy::rpc::types::eth::BlockNumberOrTag;
 #[derive(Debug)]
 pub enum RangeMiss {
     BeforeRange { t: u64, lo: u64, lo_ts: u64 },
-    AfterRange  { t: u64, hi: u64, hi_ts: u64 },
+    AfterRange { t: u64, hi: u64, hi_ts: u64 },
 }
 
 impl std::fmt::Display for RangeMiss {
