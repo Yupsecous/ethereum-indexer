@@ -6,7 +6,7 @@ High-performance Ethereum RPC indexing with load balancing and parallel processi
 
 - `indexer` - Core library with stream processing
 - `indexer-server` - Axum web server
-- `indexer-cli` - Benchmarking CLI
+- `indexer-cli` - Benchmarking and testing CLI
 
 ## CLI Commands
 
@@ -35,7 +35,12 @@ cargo run -p indexer-cli -- --method get-balance --rpc URL --address 0x... --dat
 
 # Balance at date with explicit block ranges (for better performance)
 cargo run -p indexer-cli -- --method get-balance --rpc URL --address 0x... --date 2024-01-01 --block-range-lo 18900000 --block-range-hi 19100000
-```
+
+# Get logs from contracts
+cargo run -p indexer-cli -- --method get-logs --rpc URL --from N --to N --addresses 0x...
+
+# ERC-20 transfers for address
+cargo run -p indexer-cli -- --method get-logs --rpc URL --from N --to N --erc20-transfers-for 0x...
 
 ## Server
 
@@ -64,3 +69,4 @@ cargo run -p indexer-server
 - `GET /api/eth/getBalance/{address}/{date}` - Balance at date (YYYY-MM-DD format, 00:00 UTC)
 - `GET /api/eth/getBalance/{address}/{date}?block_range_lo=N&block_range_hi=N` - With explicit block ranges
 - `GET /api/eth/getBalance/{address}/{date}?on_miss=strict` - With custom miss handling policy
+
