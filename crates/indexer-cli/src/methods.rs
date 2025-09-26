@@ -1,5 +1,6 @@
 use crate::cli;
 use alloy::primitives::{Address, B256};
+use alloy::rpc::types::eth::BlockNumberOrTag;
 use futures::StreamExt;
 use indexer::{
     BlockByNumberBuilder, EthereumIndexer, Range, TraceFilterBuilder, TraceFilterPlan,
@@ -76,7 +77,7 @@ pub async fn run_get_block_by_number(
 ) -> anyhow::Result<()> {
     let mut builder = BlockByNumberBuilder::new().full(cfg.full);
 
-    let total_blocks = if let Some(tag) = cfg.tag {
+    let total_blocks = if let Some(ref tag) = cfg.tag {
         builder = match tag.as_str() {
             "latest" => builder.latest(),
             "earliest" => builder.earliest(),
@@ -90,6 +91,7 @@ pub async fn run_get_block_by_number(
         let count = cfg.numbers.len();
         builder = cfg
             .numbers
+            .clone()
             .into_iter()
             .fold(builder, |b, n| b.push_number(n));
         count as u64
@@ -101,43 +103,103 @@ pub async fn run_get_block_by_number(
     };
 
     let plan = builder.plan()?;
-    let work_items = plan.plan()?;
+    let work = plan.plan()?;
 
-    let (completed_blocks, total_items) = indexer
-        .run(work_items)
-        .fold(
-            (0u64, 0usize),
-            |(mut completed_blocks, mut total_items), res| async move {
-                match res {
-                    Ok((_key, value)) => match indexer::BlockByNumberPlan::decode(value) {
-                        Ok(Some(block)) => {
-                            total_items += 1;
-                            completed_blocks += 1;
+    // Detect if all items are numeric (ordered) or any tag exists (unordered)
+    let all_numeric = plan
+        .numbers
+        .iter()
+        .all(|n| matches!(n, BlockNumberOrTag::Number(_)));
 
-                            if completed_blocks % 10 == 0 {
-                                let elapsed = start.elapsed().as_secs_f64();
-                                let pct = completed_blocks as f64 / total_blocks as f64 * 100.0;
-                                info!(
-                                    "Block {} | {}/{} ({:.1}%) | {:.0} blk/s",
-                                    block.header.number,
-                                    completed_blocks,
-                                    total_blocks,
-                                    pct,
-                                    completed_blocks as f64 / elapsed
-                                );
-                            }
-                        }
-                        Ok(None) => {
-                            completed_blocks += 1;
-                        }
-                        Err(e) => error!("decode error: {}", e),
-                    },
-                    Err(e) => error!("{}", e),
+    let (completed_blocks, total_items) = if all_numeric {
+        let start_key = plan
+            .numbers
+            .iter()
+            .filter_map(|n| {
+                if let BlockNumberOrTag::Number(x) = n {
+                    Some(*x)
+                } else {
+                    None
                 }
-                (completed_blocks, total_items)
-            },
-        )
-        .await;
+            })
+            .min()
+            .unwrap();
+
+        // Ordered, parallel
+        order_by_range(indexer.run(work), start_key)
+            .fold(
+                (0u64, 0usize),
+                |(mut completed_blocks, mut total_items), res| async move {
+                    match res {
+                        Ok((range, value)) => match indexer::BlockByNumberPlan::decode(value) {
+                            Ok(Some(block)) => {
+                                total_items += 1;
+                                completed_blocks += 1;
+
+                                if completed_blocks % 10 == 0 {
+                                    let elapsed = start.elapsed().as_secs_f64();
+                                    let pct = completed_blocks as f64 / total_blocks as f64 * 100.0;
+                                    info!(
+                                        "Block {} | Range {}-{} | {}/{} ({:.1}%) | {:.0} blk/s",
+                                        block.header.number,
+                                        range.from,
+                                        range.to,
+                                        completed_blocks,
+                                        total_blocks,
+                                        pct,
+                                        completed_blocks as f64 / elapsed
+                                    );
+                                }
+                            }
+                            Ok(None) => {
+                                completed_blocks += 1;
+                            }
+                            Err(e) => error!("decode error: {}", e),
+                        },
+                        Err(e) => error!("{}", e),
+                    }
+                    (completed_blocks, total_items)
+                },
+            )
+            .await
+    } else {
+        // Unordered, parallel - process tags/mixed queries
+        indexer
+            .run(work)
+            .fold(
+                (0u64, 0usize),
+                |(mut completed_blocks, mut total_items), res| async move {
+                    match res {
+                        Ok((_key, value)) => match indexer::BlockByNumberPlan::decode(value) {
+                            Ok(Some(block)) => {
+                                total_items += 1;
+                                completed_blocks += 1;
+
+                                if completed_blocks % 10 == 0 {
+                                    let elapsed = start.elapsed().as_secs_f64();
+                                    let pct = completed_blocks as f64 / total_blocks as f64 * 100.0;
+                                    info!(
+                                        "Block {} | {}/{} ({:.1}%) | {:.0} blk/s",
+                                        block.header.number,
+                                        completed_blocks,
+                                        total_blocks,
+                                        pct,
+                                        completed_blocks as f64 / elapsed
+                                    );
+                                }
+                            }
+                            Ok(None) => {
+                                completed_blocks += 1;
+                            }
+                            Err(e) => error!("decode error: {}", e),
+                        },
+                        Err(e) => error!("{}", e),
+                    }
+                    (completed_blocks, total_items)
+                },
+            )
+            .await
+    };
 
     print_final_results(completed_blocks, total_items, start);
     Ok(())
