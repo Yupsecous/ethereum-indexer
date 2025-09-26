@@ -27,6 +27,7 @@ pub use providers::{build_rpc_clients, build_rpc_clients_with_retry};
 
 // Method planners
 pub use methods::eth::get_block_by_number::BlockByNumberPlan;
+pub use methods::eth::get_logs::GetLogsPlan;
 pub use methods::eth::get_transaction_by_hash::TxByHashPlan;
 pub use methods::eth::get_transaction_receipt::TxReceiptPlan;
 pub use methods::trace::filter::TraceFilterPlan;
