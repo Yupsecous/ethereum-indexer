@@ -12,6 +12,8 @@ pub enum Method {
     GetTransactionReceipt,
     #[value(name = "get-balance")]
     GetBalance,
+    #[value(name = "get-logs")]
+    GetLogs,
 }
 
 #[derive(Parser)]
@@ -72,4 +74,22 @@ pub struct Config {
 
     #[arg(long = "parallel-requests-per-rpc", default_value = "5")]
     pub parallel_requests_per_rpc: usize,
+
+    #[arg(
+        long = "addresses",
+        help = "Contract addresses to filter logs (required unless using --erc20-transfers-for)"
+    )]
+    pub addresses: Vec<String>,
+
+    #[arg(
+        long = "topics",
+        help = "Event topic filters as hex strings (optional)"
+    )]
+    pub topics: Vec<String>,
+
+    #[arg(
+        long = "erc20-transfers-for",
+        help = "Track ERC-20 transfers for this address (uses specialized builder)"
+    )]
+    pub erc20_transfers_for: Option<String>,
 }
