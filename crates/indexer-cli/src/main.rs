@@ -49,10 +49,23 @@ async fn main() -> anyhow::Result<()> {
             if cfg.from.is_none() || cfg.to.is_none() {
                 anyhow::bail!("--from and --to are required for get-logs method");
             }
-            // Require addresses unless using ERC-20 transfers filter
-            if cfg.erc20_transfers_for.is_none() && cfg.addresses.is_empty() {
+            // Ensure only one ERC-20 option is used
+            let erc20_options = [
+                cfg.erc20_transfers_for.is_some(),
+                cfg.erc20_token_transfers.is_some(),
+            ]
+            .iter()
+            .filter(|&&x| x)
+            .count();
+
+            if erc20_options > 1 {
+                anyhow::bail!("Cannot use both --erc20-transfers-for and --erc20-token-transfers");
+            }
+
+            // Require addresses unless using ERC-20 filters
+            if erc20_options == 0 && cfg.addresses.is_empty() {
                 anyhow::bail!(
-                    "--addresses is required for get-logs method (unless using --erc20-transfers-for)"
+                    "--addresses is required for get-logs method (unless using --erc20-transfers-for or --erc20-token-transfers)"
                 );
             }
         }
@@ -137,7 +150,10 @@ async fn main() -> anyhow::Result<()> {
                 info!("Topics: {:?}", cfg.topics);
             }
             if let Some(erc20_addr) = &cfg.erc20_transfers_for {
-                info!("ERC-20 transfers for: {}", erc20_addr);
+                info!("ERC-20 wallet transfers for: {}", erc20_addr);
+            }
+            if let Some(token_addr) = &cfg.erc20_token_transfers {
+                info!("ERC-20 token transfers for: {}", token_addr);
             }
         }
     }

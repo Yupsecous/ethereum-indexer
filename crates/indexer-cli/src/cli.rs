@@ -89,7 +89,13 @@ pub struct Config {
 
     #[arg(
         long = "erc20-transfers-for",
-        help = "Track ERC-20 transfers for this address (uses specialized builder)"
+        help = "Track ERC-20 transfers to/from this wallet address"
     )]
     pub erc20_transfers_for: Option<String>,
+
+    #[arg(
+        long = "erc20-token-transfers",
+        help = "Track ALL transfers of this ERC-20 token contract"
+    )]
+    pub erc20_token_transfers: Option<String>,
 }
