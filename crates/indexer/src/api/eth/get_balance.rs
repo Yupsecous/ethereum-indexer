@@ -99,8 +99,7 @@ impl GetBalanceBuilder {
     }
 }
 
-/// Convenience one-shots if you don’t want the builder:
-
+// Convenience one-shots if you don’t want the builder:
 pub async fn get_balance_at_block(
     idx: &EthereumIndexer,
     addr: Address,
