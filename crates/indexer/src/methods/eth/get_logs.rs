@@ -6,14 +6,13 @@ use alloy::primitives::{Address, B256};
 use alloy::rpc::types::eth::{BlockNumberOrTag, Log};
 use serde_json::json;
 
-/// Topic selector for a single slot in `topics[0..=3]`.
+/// Per-slot topic selector for `topics[0..=3]`.
 #[derive(Clone, Debug)]
 pub enum Topic {
-    Any,           // null
-    One(B256),     // single topic
-    Or(Vec<B256>), // OR of multiple topics
+    Any,           // -> null
+    One(B256),     // -> "0x.."
+    Or(Vec<B256>), // -> ["0x..", ...]
 }
-
 impl Topic {
     fn to_json(&self) -> serde_json::Value {
         match self {
@@ -24,28 +23,25 @@ impl Topic {
     }
 }
 
-/// `eth_getLogs` plan: chunked by block range, optional address filter, up to 4 topics.
+/// Chunked `eth_getLogs` plan (range + addresses + topics).
 #[derive(Clone, Debug)]
 pub struct GetLogsPlan {
     pub range: Range,
     pub chunk_size: u64,
-    /// If non-empty, becomes `address: [addr...]`. If empty, omit field.
-    pub addresses: Vec<Address>,
-    /// 0..=3 topic slots. Missing slots are serialized as `null`.
-    pub topics: Vec<Topic>,
+    pub addresses: Vec<Address>, // empty => omit "address"
+    pub topics: Vec<Topic>,      // 0..=3; missing => null
 }
 
 impl GetLogsPlan {
-    /// Emit one `eth_getLogs` call per chunk.
     pub fn plan(&self) -> anyhow::Result<Vec<WorkItem>> {
+        // materialize topics[0..4]
         let topics_json = {
-            // Build exactly 4 entries as per RPC shape
             let mut v = Vec::with_capacity(4);
             for i in 0..4 {
                 v.push(
                     self.topics
                         .get(i)
-                        .map(|t| t.to_json())
+                        .map(Topic::to_json)
                         .unwrap_or(serde_json::Value::Null),
                 );
             }
@@ -56,23 +52,21 @@ impl GetLogsPlan {
 
         let items = chunk_range(self.range, self.chunk_size)
             .map(|r| {
-                // Use Alloy’s BlockNumberOrTag for correct hex serialization
                 let from_v = serde_json::to_value(BlockNumberOrTag::Number(r.from))?;
                 let to_v = serde_json::to_value(BlockNumberOrTag::Number(r.to))?;
 
+                // NOTE: clone topics_json per chunk (small).
                 let mut filter = json!({
                     "fromBlock": from_v,
                     "toBlock":   to_v,
-                    "topics":    topics_json,
+                    "topics":    topics_json.clone(),
                 });
 
                 if have_addresses {
-                    // Single or many addresses; RPC accepts string or array. We always give an array.
-                    let addrs = serde_json::to_value(&self.addresses)?;
                     filter
                         .as_object_mut()
-                        .expect("filter obj")
-                        .insert("address".into(), addrs);
+                        .unwrap()
+                        .insert("address".into(), serde_json::to_value(&self.addresses)?);
                 }
 
                 Ok(WorkItem {
@@ -86,41 +80,35 @@ impl GetLogsPlan {
         Ok(items)
     }
 
-    /// Decode RPC result into Alloy `Log` types.
     pub fn decode(v: serde_json::Value) -> anyhow::Result<Vec<Log>> {
         Ok(serde_json::from_value(v)?)
     }
 }
 
-/// Helpers for ERC-20 Transfer filtering (topic0 hash + indexed address topic encoding).
+/// Small helpers for common topic encodings.
 pub mod helpers {
     use super::*;
-    use alloy::primitives::B256;
-
-    /// Convert an address to a 32-byte topic (right-padded in the low 20 bytes).
+    /// Convert an address to a 32-byte topic (right-aligned).
     pub fn address_topic(addr: Address) -> B256 {
         let mut b = [0u8; 32];
-        // Right-align the 20 bytes (topics are ABI-encoded for value types).
         b[12..].copy_from_slice(addr.as_slice());
         B256::from(b)
     }
-
-    /// Build topics array for `Transfer(from=watched, to=*)`.
-    pub fn erc20_transfer_from_topics(sig_topic: B256, watched: Address) -> [Topic; 4] {
+    /// topics for `Transfer(from=watched, to=*)`
+    pub fn erc20_transfer_from(sig_topic: B256, watched: Address) -> [Topic; 4] {
         [
-            Topic::One(sig_topic),              // topic0: event signature
-            Topic::One(address_topic(watched)), // topic1: indexed from
-            Topic::Any,                         // topic2: indexed to
-            Topic::Any,                         // topic3: value (non-indexed -> not in topics)
+            Topic::One(sig_topic),
+            Topic::One(address_topic(watched)),
+            Topic::Any,
+            Topic::Any,
         ]
     }
-
-    /// Build topics array for `Transfer(from=*, to=watched)`.
-    pub fn erc20_transfer_to_topics(sig_topic: B256, watched: Address) -> [Topic; 4] {
+    /// topics for `Transfer(from=*, to=watched)`
+    pub fn erc20_transfer_to(sig_topic: B256, watched: Address) -> [Topic; 4] {
         [
             Topic::One(sig_topic),
             Topic::Any,
-            Topic::One(address_topic(watched)), // topic2: indexed to
+            Topic::One(address_topic(watched)),
             Topic::Any,
         ]
     }
