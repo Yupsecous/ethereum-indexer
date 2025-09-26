@@ -1,18 +1,18 @@
 use crate::{
-    exec::Range,
-    methods::eth::get_logs::{GetLogsPlan, Topic},
+    exec::{Range, WorkItem},
+    methods::eth::get_logs::{GetLogsPlan, Topic, helpers},
 };
 use alloy::primitives::{Address, B256};
 
-/// General-purpose `eth_getLogs` builder (chunked, parallelizable).
+/// General `eth_getLogs` builder.
 #[derive(Clone, Debug)]
 pub struct GetLogsBuilder {
     from: u64,
     to: u64,
     chunk_size: u64,
     addresses: Vec<Address>,
-    topics: Vec<Topic>, // 0..=3; missing -> null
-    // safety
+    topics: Vec<Topic>, // up to 4
+    // guards
     max_blocks: u64,
     max_addresses: usize,
     max_topic_or: usize,
@@ -31,7 +31,6 @@ impl GetLogsBuilder {
             max_topic_or: 64,
         }
     }
-
     pub fn chunk_size(mut self, n: u64) -> Self {
         self.chunk_size = n.max(1);
         self
@@ -47,7 +46,6 @@ impl GetLogsBuilder {
 
     pub fn topic_any(mut self, slot: usize) -> Self {
         if slot < 4 {
-            // ensure capacity up to slot
             if self.topics.len() <= slot {
                 self.topics.resize(slot + 1, Topic::Any);
             }
@@ -55,7 +53,6 @@ impl GetLogsBuilder {
         }
         self
     }
-
     pub fn topic_one(mut self, slot: usize, t: B256) -> Self {
         if slot < 4 {
             if self.topics.len() <= slot {
@@ -65,10 +62,8 @@ impl GetLogsBuilder {
         }
         self
     }
-
-    pub fn topic_or(mut self, slot: usize, ts: Vec<B256>) -> Self {
+    pub fn topic_or(mut self, slot: usize, mut ts: Vec<B256>) -> Self {
         if slot < 4 {
-            let mut ts = ts;
             if ts.len() > self.max_topic_or {
                 ts.truncate(self.max_topic_or);
             }
@@ -79,7 +74,6 @@ impl GetLogsBuilder {
         }
         self
     }
-
     pub fn limits(mut self, max_blocks: u64, max_addresses: usize, max_topic_or: usize) -> Self {
         self.max_blocks = max_blocks.max(1);
         self.max_addresses = max_addresses.max(1);
@@ -111,18 +105,19 @@ impl GetLogsBuilder {
     }
 }
 
-/// Convenience: ERC-20 transfers (both directions) for a watched address.
-/// If `tokens` is non-empty, we filter `address` by those token contracts.
+/// ERC-20 transfers for a watched address, **split lanes** (FROM / TO).
 #[derive(Clone, Debug)]
 pub struct Erc20TransfersBuilder {
     watched: Address,
     from: u64,
     to: u64,
     chunk_size: u64,
-    tokens: Vec<Address>, // optional allow-list
+    tokens: Vec<Address>, // optional allow-list; empty = any token
+    // guards
     max_blocks: u64,
     max_tokens: usize,
-    transfer_sig: B256, // topic0 for Transfer
+    // topic0 for Transfer
+    transfer_sig: B256,
 }
 
 impl Erc20TransfersBuilder {
@@ -138,7 +133,6 @@ impl Erc20TransfersBuilder {
             transfer_sig,
         }
     }
-
     pub fn chunk_size(mut self, n: u64) -> Self {
         self.chunk_size = n.max(1);
         self
@@ -153,8 +147,8 @@ impl Erc20TransfersBuilder {
         self
     }
 
-    /// Builds *two* `eth_getLogs` batches (FROM and TO) merged into one Vec<WorkItem>.
-    pub fn work_items(self) -> anyhow::Result<Vec<crate::exec::WorkItem>> {
+    /// Build **two** work batches (FROM lane, TO lane) plus the base range.
+    pub fn plan_split(self) -> anyhow::Result<(Vec<WorkItem>, Vec<WorkItem>, Range)> {
         if self.to < self.from {
             anyhow::bail!("invalid range: to < from");
         }
@@ -166,43 +160,28 @@ impl Erc20TransfersBuilder {
             anyhow::bail!("too many token addresses");
         }
 
-        // FROM=watched
-        let mut from_topics: Vec<Topic> = Vec::with_capacity(4);
-        from_topics.push(Topic::One(self.transfer_sig));
-        from_topics.push(Topic::One(
-            super::super::super::methods::eth::get_logs::helpers::address_topic(self.watched),
-        ));
-        from_topics.push(Topic::Any);
-        from_topics.push(Topic::Any);
-
-        // TO=watched
-        let mut to_topics: Vec<Topic> = Vec::with_capacity(4);
-        to_topics.push(Topic::One(self.transfer_sig));
-        to_topics.push(Topic::Any);
-        to_topics.push(Topic::One(
-            super::super::super::methods::eth::get_logs::helpers::address_topic(self.watched),
-        ));
-        to_topics.push(Topic::Any);
-
         let base_range = Range {
             from: self.from,
             to: self.to,
         };
 
-        // Helper to materialize GetLogsPlan → WorkItems with a given topic vector
-        let build = |topics: Vec<Topic>| -> anyhow::Result<Vec<crate::exec::WorkItem>> {
-            let plan = GetLogsPlan {
+        // Build topics for each lane
+        let topics_from = helpers::erc20_transfer_from(self.transfer_sig, self.watched);
+        let topics_to = helpers::erc20_transfer_to(self.transfer_sig, self.watched);
+
+        // Materialize each lane into WorkItems
+        let build = |topics: [Topic; 4]| -> anyhow::Result<Vec<WorkItem>> {
+            GetLogsPlan {
                 range: base_range,
                 chunk_size: self.chunk_size,
-                addresses: self.tokens.clone(), // if empty, no contract filter
-                topics,
-            };
-            plan.plan()
+                addresses: self.tokens.clone(), // empty => any token
+                topics: topics.to_vec(),
+            }
+            .plan()
         };
 
-        let mut out = Vec::new();
-        out.extend(build(from_topics)?);
-        out.extend(build(to_topics)?);
-        Ok(out)
+        let from_items = build(topics_from)?;
+        let to_items = build(topics_to)?;
+        Ok((from_items, to_items, base_range))
     }
 }
