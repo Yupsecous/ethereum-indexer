@@ -5,7 +5,7 @@ use futures::StreamExt;
 use indexer::{
     BlockByNumberBuilder, EthereumIndexer, GetLogsPlan, OnMiss, Range, TraceFilterBuilder,
     TraceFilterPlan, TxByHashPlan, TxReceiptPlan,
-    api::eth::get_logs::{Erc20TransfersBuilder, GetLogsBuilder},
+    api::eth::get_logs::{Erc20TokenTransfersBuilder, Erc20WalletTransfersBuilder, GetLogsBuilder},
     balance_at_timestamp, order_by_range,
 };
 use tracing::{error, info};
@@ -293,11 +293,38 @@ fn print_progress(
     total_items: usize,
     start: std::time::Instant,
 ) {
+    print_progress_with_prefix(
+        "",
+        range,
+        items,
+        completed_blocks,
+        total_blocks,
+        total_items,
+        start,
+    );
+}
+
+fn print_progress_with_prefix(
+    prefix: &str,
+    range: Range,
+    items: usize,
+    completed_blocks: u64,
+    total_blocks: u64,
+    total_items: usize,
+    start: std::time::Instant,
+) {
     let elapsed = start.elapsed().as_secs_f64();
     let pct = completed_blocks as f64 / total_blocks as f64 * 100.0;
 
+    let prefix_str = if prefix.is_empty() {
+        String::new()
+    } else {
+        format!("[{}] ", prefix)
+    };
+
     info!(
-        "Chunk {}-{} | {} items | {}/{} ({:.1}%) | {:.0} blk/s | {:.0} item/s",
+        "{}Chunk {}-{} | {} items | {}/{} ({:.1}%) | {:.0} blk/s | {:.0} item/s",
+        prefix_str,
         range.from,
         range.to,
         items,
@@ -365,9 +392,11 @@ pub async fn run_get_logs(
     indexer: &EthereumIndexer,
     start: std::time::Instant,
 ) -> anyhow::Result<()> {
-    // Check if we should use ERC-20 transfers builder or general logs builder
-    if let Some(erc20_address) = cfg.erc20_transfers_for.clone() {
-        run_erc20_transfers(cfg, indexer, start, erc20_address).await
+    // Check which mode to use based on CLI parameters
+    if let Some(wallet_address) = cfg.erc20_transfers_for.clone() {
+        run_erc20_wallet_transfers(cfg, indexer, start, wallet_address).await
+    } else if let Some(token_address) = cfg.erc20_token_transfers.clone() {
+        run_erc20_token_transfers(cfg, indexer, start, token_address).await
     } else {
         run_general_logs(cfg, indexer, start).await
     }
@@ -447,15 +476,15 @@ async fn run_general_logs(
     Ok(())
 }
 
-async fn run_erc20_transfers(
+async fn run_erc20_wallet_transfers(
     cfg: cli::Config,
     indexer: &EthereumIndexer,
     start: std::time::Instant,
-    watched_address: String,
+    wallet_address: String,
 ) -> anyhow::Result<()> {
     let start_block = cfg.from.unwrap();
     let end_block = cfg.to.unwrap();
-    let watched: Address = watched_address.parse()?;
+    let wallet: Address = wallet_address.parse()?;
 
     // Use the library's ERC-20 contract support
     use alloy::sol_types::SolEvent;
@@ -471,8 +500,9 @@ async fn run_erc20_transfers(
         IERC20::Transfer::SIGNATURE_HASH
     };
 
-    let mut builder = Erc20TransfersBuilder::new(watched, start_block, end_block, transfer_sig)
-        .chunk_size(cfg.chunk_size);
+    let mut builder =
+        Erc20WalletTransfersBuilder::new(wallet, start_block, end_block, transfer_sig)
+            .chunk_size(cfg.chunk_size);
 
     // Add token filter if addresses provided
     if !cfg.addresses.is_empty() {
@@ -532,11 +562,16 @@ async fn run_erc20_transfers(
                                 lane_transfers += transfer_count;
                                 lane_blocks += range.to - range.from + 1;
 
-                                // Show progress for this lane
-                                if transfer_count > 0 || lane_blocks % 500 == 0 {
-                                    info!("[{}] Chunk {}-{} | {} transfers | {}/{} blocks processed",
-                                        lane_name, range.from, range.to, transfer_count, lane_blocks, total_blocks);
-                                }
+                                // Show progress for this lane using standard format
+                                print_progress_with_prefix(
+                                    &lane_name,
+                                    range,
+                                    transfer_count,
+                                    lane_blocks,
+                                    total_blocks,
+                                    lane_transfers,
+                                    start,
+                                );
                             }
                             Err(e) => error!("[{}] decode error: {}", lane_name, e),
                         },
@@ -559,6 +594,102 @@ async fn run_erc20_transfers(
 
     let completed_blocks = from_blocks.max(to_blocks); // Both should be the same
     let total_transfers = from_transfers + to_transfers;
+
+    print_final_results(completed_blocks, total_transfers, start);
+    Ok(())
+}
+
+async fn run_erc20_token_transfers(
+    cfg: cli::Config,
+    indexer: &EthereumIndexer,
+    start: std::time::Instant,
+    token_address: String,
+) -> anyhow::Result<()> {
+    let start_block = cfg.from.unwrap();
+    let end_block = cfg.to.unwrap();
+    let token: Address = token_address.parse()?;
+
+    // Use the library's ERC-20 contract support
+    use alloy::sol_types::SolEvent;
+
+    // Get the transfer signature from our contracts module
+    let transfer_sig = {
+        use alloy::sol;
+        sol! {
+            interface IERC20 {
+                event Transfer(address indexed from, address indexed to, uint256 value);
+            }
+        }
+        IERC20::Transfer::SIGNATURE_HASH
+    };
+
+    let builder = Erc20TokenTransfersBuilder::new(token, start_block, end_block, transfer_sig)
+        .chunk_size(cfg.chunk_size);
+
+    let (work_items, range) = builder.plan()?;
+    let total_blocks = end_block - start_block + 1;
+
+    // Process as a single stream since it's all transfers of one token
+    let (completed_blocks, total_transfers) = order_by_range(indexer.run(work_items), range.from)
+        .fold(
+            (0u64, 0usize),
+            |(mut completed_blocks, mut total_transfers), res| async move {
+                match res {
+                    Ok((range, value)) => match GetLogsPlan::decode(value) {
+                        Ok(logs) => {
+                            let mut transfer_count = 0;
+                            for log in logs {
+                                // Try to decode as ERC-20 Transfer event
+                                use alloy::sol;
+                                sol! {
+                                    interface IERC20 {
+                                        event Transfer(address indexed from, address indexed to, uint256 value);
+                                    }
+                                }
+
+                                // Convert RPC Log to primitive Log for decoding
+                                let primitive_log = alloy::primitives::Log {
+                                    address: log.address(),
+                                    data: alloy::primitives::LogData::new(
+                                        log.topics().to_vec(),
+                                        log.data().data.clone(),
+                                    ).unwrap(),
+                                };
+                                if let Ok(decoded) = IERC20::Transfer::decode_log(&primitive_log) {
+                                    transfer_count += 1;
+                                    if let Some(tx_hash) = &log.transaction_hash {
+                                        println!(
+                                            "Transfer: {} -> {} ({}), token={}, tx={}",
+                                            decoded.from,
+                                            decoded.to,
+                                            decoded.value,
+                                            log.address(),
+                                            tx_hash
+                                        );
+                                    }
+                                }
+                            }
+
+                            total_transfers += transfer_count;
+                            completed_blocks += range.to - range.from + 1;
+
+                            print_progress(
+                                range,
+                                transfer_count,
+                                completed_blocks,
+                                total_blocks,
+                                total_transfers,
+                                start,
+                            );
+                        }
+                        Err(e) => error!("decode error: {}", e),
+                    },
+                    Err(e) => error!("{}", e),
+                }
+                (completed_blocks, total_transfers)
+            },
+        )
+        .await;
 
     print_final_results(completed_blocks, total_transfers, start);
     Ok(())
@@ -710,7 +841,7 @@ fn print_final_results(completed_blocks: u64, total_items: usize, start: std::ti
     );
     info!("Time: {:.2}s", elapsed);
     info!(
-        "Performance: {:.0} items/sec",
+        "Performance: {:.0} blocks/sec",
         completed_blocks as f64 / elapsed
     );
 }
