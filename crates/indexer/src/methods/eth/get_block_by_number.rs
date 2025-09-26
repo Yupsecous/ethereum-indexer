@@ -35,3 +35,15 @@ impl BlockByNumberPlan {
         Ok(serde_json::from_value(v)?)
     }
 }
+
+pub fn work_one(n: BlockNumberOrTag, full: bool) -> anyhow::Result<WorkItem> {
+    let key = match n {
+        BlockNumberOrTag::Number(u) => OrderingKey::Range(Range { from: u, to: u }),
+        _ => OrderingKey::None,
+    };
+    Ok(WorkItem {
+        method: "eth_getBlockByNumber",
+        params: vec![serde_json::to_value(n)?, serde_json::to_value(full)?],
+        key,
+    })
+}
