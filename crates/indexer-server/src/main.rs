@@ -4,8 +4,8 @@ mod types;
 use alloy::transports::http::reqwest::Url;
 use axum::{Router, routing::get};
 use handlers::{
-    get_block_by_number, get_transaction_by_hash, get_transaction_receipt, ping,
-    trace_filter_no_address, trace_filter_with_address,
+    get_balance_at_date, get_block_by_number, get_transaction_by_hash, get_transaction_receipt,
+    ping, trace_filter_no_address, trace_filter_with_address,
 };
 use indexer::EngineBuilder;
 use std::sync::Arc;
@@ -53,6 +53,10 @@ async fn main() -> anyhow::Result<()> {
         .route(
             "/api/eth/getTransactionReceipt/{hash}",
             get(get_transaction_receipt),
+        )
+        .route(
+            "/api/eth/getBalance/{address}/{date}",
+            get(get_balance_at_date),
         )
         .with_state(shared_engine);
 
