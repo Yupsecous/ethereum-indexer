@@ -33,7 +33,6 @@ impl EthereumIndexer {
             global_parallel: n * per_rpc_parallel,
         }
     }
-
     pub fn run(
         &self,
         items: Vec<WorkItem>,
@@ -48,7 +47,27 @@ impl EthereumIndexer {
         }))
         .buffer_unordered(self.global_parallel)
     }
-
+    pub async fn run_once(&self, item: WorkItem) -> anyhow::Result<serde_json::Value> {
+        let mut s = self.run(vec![item]);
+        match s.next().await {
+            Some(Ok((_k, v))) => Ok(v),
+            Some(Err(e)) => Err(e),
+            None => anyhow::bail!("empty stream for single call"),
+        }
+    }
+    // syntax sugar to for a one time call
+    pub async fn call_once(
+        &self,
+        method: &'static str,
+        params: Vec<serde_json::Value>,
+    ) -> anyhow::Result<serde_json::Value> {
+        self.run_once(WorkItem {
+            method,
+            params,
+            key: OrderingKey::None,
+        })
+        .await
+    }
     pub fn stats(&self) -> Arc<[RpcStats]> {
         self.pool.stats()
     }

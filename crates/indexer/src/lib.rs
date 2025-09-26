@@ -7,7 +7,13 @@ pub mod providers;
 
 // API (builders)
 pub use api::{
-    BlockByNumberBuilder, EngineBuilder, TraceFilterBuilder, TxByHashBuilder, TxReceiptBuilder,
+    BlockByNumberBuilder,
+    EngineBuilder,
+    TraceFilterBuilder,
+    TxByHashBuilder,
+    TxReceiptBuilder,
+    // ergonomic helpers
+    eth::get_balance::{GetBalanceBuilder, get_balance_at_block, get_balance_at_timestamp},
 };
 
 // Core types
