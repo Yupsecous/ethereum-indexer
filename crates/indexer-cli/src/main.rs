@@ -45,6 +45,17 @@ async fn main() -> anyhow::Result<()> {
                 anyhow::bail!("--date is required for get-balance method");
             }
         }
+        cli::Method::GetLogs => {
+            if cfg.from.is_none() || cfg.to.is_none() {
+                anyhow::bail!("--from and --to are required for get-logs method");
+            }
+            // Require addresses unless using ERC-20 transfers filter
+            if cfg.erc20_transfers_for.is_none() && cfg.addresses.is_empty() {
+                anyhow::bail!(
+                    "--addresses is required for get-logs method (unless using --erc20-transfers-for)"
+                );
+            }
+        }
     }
 
     let urls: Vec<Url> = cfg
@@ -112,6 +123,23 @@ async fn main() -> anyhow::Result<()> {
                 info!("Block range hi: {}", hi);
             }
         }
+        cli::Method::GetLogs => {
+            info!(
+                "Blocks: {} to {} (chunk size: {})",
+                cfg.from.unwrap(),
+                cfg.to.unwrap(),
+                cfg.chunk_size
+            );
+            if !cfg.addresses.is_empty() {
+                info!("Contract addresses: {:?}", cfg.addresses);
+            }
+            if !cfg.topics.is_empty() {
+                info!("Topics: {:?}", cfg.topics);
+            }
+            if let Some(erc20_addr) = &cfg.erc20_transfers_for {
+                info!("ERC-20 transfers for: {}", erc20_addr);
+            }
+        }
     }
 
     let start = std::time::Instant::now();
@@ -132,6 +160,9 @@ async fn main() -> anyhow::Result<()> {
         }
         cli::Method::GetBalance => {
             methods::run_get_balance(cfg, &indexer, start).await?;
+        }
+        cli::Method::GetLogs => {
+            methods::run_get_logs(cfg, &indexer, start).await?;
         }
     }
 

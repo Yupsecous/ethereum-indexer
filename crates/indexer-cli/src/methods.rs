@@ -3,8 +3,10 @@ use alloy::primitives::{Address, B256};
 use alloy::rpc::types::eth::BlockNumberOrTag;
 use futures::StreamExt;
 use indexer::{
-    BlockByNumberBuilder, EthereumIndexer, OnMiss, Range, TraceFilterBuilder, TraceFilterPlan,
-    TxByHashPlan, TxReceiptPlan, balance_at_timestamp, order_by_range,
+    BlockByNumberBuilder, EthereumIndexer, GetLogsPlan, OnMiss, Range, TraceFilterBuilder,
+    TraceFilterPlan, TxByHashPlan, TxReceiptPlan,
+    api::eth::get_logs::{Erc20TransfersBuilder, GetLogsBuilder},
+    balance_at_timestamp, order_by_range,
 };
 use tracing::{error, info};
 
@@ -355,6 +357,210 @@ pub async fn run_get_balance(
     }
 
     print_final_results(1, 1, start);
+    Ok(())
+}
+
+pub async fn run_get_logs(
+    cfg: cli::Config,
+    indexer: &EthereumIndexer,
+    start: std::time::Instant,
+) -> anyhow::Result<()> {
+    // Check if we should use ERC-20 transfers builder or general logs builder
+    if let Some(erc20_address) = cfg.erc20_transfers_for.clone() {
+        run_erc20_transfers(cfg, indexer, start, erc20_address).await
+    } else {
+        run_general_logs(cfg, indexer, start).await
+    }
+}
+
+async fn run_general_logs(
+    cfg: cli::Config,
+    indexer: &EthereumIndexer,
+    start: std::time::Instant,
+) -> anyhow::Result<()> {
+    let start_block = cfg.from.unwrap();
+    let end_block = cfg.to.unwrap();
+
+    let mut builder = GetLogsBuilder::new(start_block, end_block).chunk_size(cfg.chunk_size);
+
+    // Add address filters if provided
+    if !cfg.addresses.is_empty() {
+        let addresses: Result<Vec<Address>, _> = cfg.addresses.iter().map(|a| a.parse()).collect();
+        builder = builder.addresses(addresses?);
+    }
+
+    // Add topic filters if provided
+    for (i, topic_str) in cfg.topics.iter().enumerate() {
+        if i >= 4 {
+            break; // Maximum 4 topics in Ethereum logs
+        }
+        let topic: B256 = topic_str.parse()?;
+        builder = builder.topic_one(i, topic);
+    }
+
+    let plan = builder.plan()?;
+    let total_blocks = end_block - start_block + 1;
+    let work_items = plan.plan()?;
+
+    let (completed_blocks, total_logs) = order_by_range(indexer.run(work_items), plan.range.from)
+        .fold(
+            (0u64, 0usize),
+            |(mut completed_blocks, mut total_logs), res| async move {
+                match res {
+                    Ok((range, value)) => match GetLogsPlan::decode(value) {
+                        Ok(logs) => {
+                            let log_count = logs.len();
+                            total_logs += log_count;
+                            completed_blocks += range.to - range.from + 1;
+
+                            // Print some logs for demonstration
+                            for log in logs.iter().take(5) {
+                                if let Some(tx_hash) = &log.transaction_hash {
+                                    println!(
+                                        "Log: tx={}, address={}, topics={}",
+                                        tx_hash,
+                                        log.address(),
+                                        log.topics().len()
+                                    );
+                                }
+                            }
+
+                            print_progress(
+                                range,
+                                log_count,
+                                completed_blocks,
+                                total_blocks,
+                                total_logs,
+                                start,
+                            );
+                        }
+                        Err(e) => error!("decode error: {}", e),
+                    },
+                    Err(e) => error!("{}", e),
+                }
+                (completed_blocks, total_logs)
+            },
+        )
+        .await;
+
+    print_final_results(completed_blocks, total_logs, start);
+    Ok(())
+}
+
+async fn run_erc20_transfers(
+    cfg: cli::Config,
+    indexer: &EthereumIndexer,
+    start: std::time::Instant,
+    watched_address: String,
+) -> anyhow::Result<()> {
+    let start_block = cfg.from.unwrap();
+    let end_block = cfg.to.unwrap();
+    let watched: Address = watched_address.parse()?;
+
+    // Use the library's ERC-20 contract support
+    use alloy::sol_types::SolEvent;
+
+    // Get the transfer signature from our contracts module
+    let transfer_sig = {
+        use alloy::sol;
+        sol! {
+            interface IERC20 {
+                event Transfer(address indexed from, address indexed to, uint256 value);
+            }
+        }
+        IERC20::Transfer::SIGNATURE_HASH
+    };
+
+    let mut builder = Erc20TransfersBuilder::new(watched, start_block, end_block, transfer_sig)
+        .chunk_size(cfg.chunk_size);
+
+    // Add token filter if addresses provided
+    if !cfg.addresses.is_empty() {
+        let token_addresses: Result<Vec<Address>, _> =
+            cfg.addresses.iter().map(|a| a.parse()).collect();
+        builder = builder.tokens(token_addresses?);
+    }
+
+    let (from_items, to_items, range) = builder.plan_split()?;
+    let total_blocks = end_block - start_block + 1;
+
+    // Process each lane separately to avoid duplicate OrderingKey issues
+    let process_lane = |items: Vec<indexer::WorkItem>, lane_name: String| async move {
+        let (lane_blocks, lane_transfers) = order_by_range(indexer.run(items), range.from)
+            .fold(
+                (0u64, 0usize),
+                |(mut lane_blocks, mut lane_transfers), res| {
+                    let lane_name = lane_name.clone();
+                    async move {
+                    match res {
+                        Ok((range, value)) => match GetLogsPlan::decode(value) {
+                            Ok(logs) => {
+                                let mut transfer_count = 0;
+                                for log in logs {
+                                    // Try to decode as ERC-20 Transfer event
+                                    use alloy::sol;
+                                    sol! {
+                                        interface IERC20 {
+                                            event Transfer(address indexed from, address indexed to, uint256 value);
+                                        }
+                                    }
+
+                                    // Convert RPC Log to primitive Log for decoding
+                                    let primitive_log = alloy::primitives::Log {
+                                        address: log.address(),
+                                        data: alloy::primitives::LogData::new(
+                                            log.topics().to_vec(),
+                                            log.data().data.clone(),
+                                        ).unwrap(),
+                                    };
+                                    if let Ok(decoded) = IERC20::Transfer::decode_log(&primitive_log) {
+                                        transfer_count += 1;
+                                        if let Some(tx_hash) = &log.transaction_hash {
+                                            println!(
+                                                "[{}] Transfer: {} -> {} ({}), token={}, tx={}",
+                                                lane_name,
+                                                decoded.from,
+                                                decoded.to,
+                                                decoded.value,
+                                                log.address(),
+                                                tx_hash
+                                            );
+                                        }
+                                    }
+                                }
+
+                                lane_transfers += transfer_count;
+                                lane_blocks += range.to - range.from + 1;
+
+                                // Show progress for this lane
+                                if transfer_count > 0 || lane_blocks % 500 == 0 {
+                                    info!("[{}] Chunk {}-{} | {} transfers | {}/{} blocks processed",
+                                        lane_name, range.from, range.to, transfer_count, lane_blocks, total_blocks);
+                                }
+                            }
+                            Err(e) => error!("[{}] decode error: {}", lane_name, e),
+                        },
+                        Err(e) => error!("[{}] {}", lane_name, e),
+                    }
+                    (lane_blocks, lane_transfers)
+                    }
+                },
+            )
+            .await;
+
+        Ok::<(u64, usize), anyhow::Error>((lane_blocks, lane_transfers))
+    };
+
+    // Run both lanes concurrently
+    let ((from_blocks, from_transfers), (to_blocks, to_transfers)) = tokio::try_join!(
+        process_lane(from_items, "FROM".to_string()),
+        process_lane(to_items, "TO".to_string())
+    )?;
+
+    let completed_blocks = from_blocks.max(to_blocks); // Both should be the same
+    let total_transfers = from_transfers + to_transfers;
+
+    print_final_results(completed_blocks, total_transfers, start);
     Ok(())
 }
 
