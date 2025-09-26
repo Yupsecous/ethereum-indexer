@@ -136,3 +136,52 @@ cargo run -p indexer-server
 - `GET /api/eth/getBalance/{address}/{date}?block_range_lo=N&block_range_hi=N` - With explicit block ranges
 - `GET /api/eth/getBalance/{address}/{date}?on_miss=strict` - With custom miss handling policy
 
+**Log Queries:**
+- `GET /api/eth/getLogs?from=N&to=N&addresses=0x...&topics=0x...` - General contract logs
+- `GET /api/eth/getLogs/erc20/wallet/{address}?from=N&to=N&tokens=0x...` - ERC-20 transfers to/from wallet
+- `GET /api/eth/getLogs/erc20/token/{address}?from=N&to=N` - All transfers of specific ERC-20 token
+
+### Log Query Examples
+
+**General Logs:**
+```bash
+curl "http://localhost:3000/api/eth/getLogs?from=18000000&to=18000100&addresses=0xA0b86a33E6441b73aE6b5b0e48e95AD1A756b3a5"
+```
+
+**ERC-20 Wallet Transfers:**
+```bash
+curl "http://localhost:3000/api/eth/getLogs/erc20/wallet/0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045?from=18000000&to=18000100"
+```
+
+**ERC-20 Token Transfers:**
+```bash
+curl "http://localhost:3000/api/eth/getLogs/erc20/token/0xA0b86a33E6441b73aE6b5b0e48e95AD1A756b3a5?from=18000000&to=18000100"
+```
+
+### Response Format
+
+All log endpoints return JSON with this structure:
+```json
+{
+  "logs": [
+    {
+      "type": "Transfer",
+      "from": "0x...",
+      "to": "0x...",
+      "value": "1000000000000000000",
+      "token": "0x...",
+      "transaction_hash": "0x...",
+      "block_number": 18000050,
+      "log_index": 42
+    }
+  ],
+  "metadata": {
+    "from_block": 18000000,
+    "to_block": 18000100,
+    "total_logs": 1,
+    "chunk_size": 1000,
+    "transfer_type": "wallet"
+  }
+}
+```
+
