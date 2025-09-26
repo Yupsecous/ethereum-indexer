@@ -3,8 +3,8 @@ use alloy::primitives::{Address, B256};
 use alloy::rpc::types::eth::BlockNumberOrTag;
 use futures::StreamExt;
 use indexer::{
-    BlockByNumberBuilder, EthereumIndexer, Range, TraceFilterBuilder, TraceFilterPlan,
-    TxByHashPlan, TxReceiptPlan, order_by_range, balance_at_timestamp, OnMiss,
+    BlockByNumberBuilder, EthereumIndexer, OnMiss, Range, TraceFilterBuilder, TraceFilterPlan,
+    TxByHashPlan, TxReceiptPlan, balance_at_timestamp, order_by_range,
 };
 use tracing::{error, info};
 
@@ -321,11 +321,23 @@ pub async fn run_get_balance(
     // Determine block range bounds
     let (lo, hi) = determine_block_bounds(&cfg, timestamp, indexer).await?;
 
-    info!("Querying balance for address {} at date {} (timestamp: {})", address, date_str, timestamp);
+    info!(
+        "Querying balance for address {} at date {} (timestamp: {})",
+        address, date_str, timestamp
+    );
     info!("Block search range: {} to {}", lo, hi);
 
     // Use AutoWidenToLatest policy for CLI user-friendliness
-    match balance_at_timestamp(indexer, address, timestamp, lo, hi, OnMiss::AutoWidenToLatest).await {
+    match balance_at_timestamp(
+        indexer,
+        address,
+        timestamp,
+        lo,
+        hi,
+        OnMiss::AutoWidenToLatest,
+    )
+    .await
+    {
         Ok(Some(balance)) => {
             let eth_balance = format_wei_to_eth(balance);
             info!("=== BALANCE RESULT ===");
@@ -353,9 +365,15 @@ fn parse_date_to_timestamp(date_str: &str) -> anyhow::Result<u64> {
         anyhow::bail!("Invalid date format. Use YYYY-MM-DD");
     }
 
-    let year: u32 = parts[0].parse().map_err(|_| anyhow::anyhow!("Invalid year"))?;
-    let month: u32 = parts[1].parse().map_err(|_| anyhow::anyhow!("Invalid month"))?;
-    let day: u32 = parts[2].parse().map_err(|_| anyhow::anyhow!("Invalid day"))?;
+    let year: u32 = parts[0]
+        .parse()
+        .map_err(|_| anyhow::anyhow!("Invalid year"))?;
+    let month: u32 = parts[1]
+        .parse()
+        .map_err(|_| anyhow::anyhow!("Invalid month"))?;
+    let day: u32 = parts[2]
+        .parse()
+        .map_err(|_| anyhow::anyhow!("Invalid day"))?;
 
     if month == 0 || month > 12 {
         anyhow::bail!("Month must be between 1 and 12");
@@ -405,7 +423,7 @@ fn is_leap_year(year: u32) -> bool {
 async fn determine_block_bounds(
     cfg: &cli::Config,
     timestamp: u64,
-    indexer: &EthereumIndexer
+    indexer: &EthereumIndexer,
 ) -> anyhow::Result<(u64, u64)> {
     let lo = if let Some(lo) = cfg.block_range_lo {
         lo
@@ -457,7 +475,8 @@ async fn determine_block_bounds(
 
 fn format_wei_to_eth(wei: alloy::primitives::U256) -> String {
     // Convert Wei to ETH (divide by 10^18)
-    let eth_divisor = alloy::primitives::U256::from(10u64).pow(alloy::primitives::U256::from(18u64));
+    let eth_divisor =
+        alloy::primitives::U256::from(10u64).pow(alloy::primitives::U256::from(18u64));
     let eth_whole = wei / eth_divisor;
     let wei_remainder = wei % eth_divisor;
 
