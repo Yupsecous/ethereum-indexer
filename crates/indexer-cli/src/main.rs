@@ -12,6 +12,36 @@ async fn main() -> anyhow::Result<()> {
 
     let cfg = cli::Config::parse();
 
+    // Custom validation for method-specific required arguments
+    match cfg.method {
+        cli::Method::TraceFilter => {
+            if cfg.target_address.is_none() {
+                anyhow::bail!("--target-address is required for trace-filter method");
+            }
+            if cfg.from.is_none() || cfg.to.is_none() {
+                anyhow::bail!("--from and --to are required for trace-filter method");
+            }
+        }
+        cli::Method::GetBlockByNumber => {
+            if cfg.tag.is_none() && cfg.numbers.is_empty() && (cfg.from.is_none() || cfg.to.is_none()) {
+                anyhow::bail!("--tag, --numbers, or both --from and --to are required for get-block-by-number method");
+            }
+        }
+        cli::Method::GetTransactionByHash | cli::Method::GetTransactionReceipt => {
+            if cfg.hashes.is_empty() {
+                anyhow::bail!("--hashes is required for transaction methods");
+            }
+        }
+        cli::Method::GetBalance => {
+            if cfg.address.is_none() {
+                anyhow::bail!("--address is required for get-balance method");
+            }
+            if cfg.date.is_none() {
+                anyhow::bail!("--date is required for get-balance method");
+            }
+        }
+    }
+
     let urls: Vec<Url> = cfg
         .rpcs
         .iter()
@@ -65,6 +95,18 @@ async fn main() -> anyhow::Result<()> {
         cli::Method::GetTransactionByHash | cli::Method::GetTransactionReceipt => {
             info!("Hashes: {} items", cfg.hashes.len());
         }
+        cli::Method::GetBalance => {
+            let address = cfg.address.as_ref().unwrap();
+            let date = cfg.date.as_ref().unwrap();
+            info!("Address: {}", address);
+            info!("Date: {}", date);
+            if let Some(lo) = cfg.block_range_lo {
+                info!("Block range lo: {}", lo);
+            }
+            if let Some(hi) = cfg.block_range_hi {
+                info!("Block range hi: {}", hi);
+            }
+        }
     }
 
     let start = std::time::Instant::now();
@@ -82,6 +124,9 @@ async fn main() -> anyhow::Result<()> {
         }
         cli::Method::GetTransactionReceipt => {
             methods::run_get_transaction_receipt(cfg, &indexer, start).await?;
+        }
+        cli::Method::GetBalance => {
+            methods::run_get_balance(cfg, &indexer, start).await?;
         }
     }
 

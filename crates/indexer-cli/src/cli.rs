@@ -10,6 +10,8 @@ pub enum Method {
     GetTransactionByHash,
     #[value(name = "get-transaction-receipt")]
     GetTransactionReceipt,
+    #[value(name = "get-balance")]
+    GetBalance,
 }
 
 #[derive(Parser)]
@@ -28,16 +30,28 @@ pub struct Config {
     #[arg(long = "hashes", required_if_eq_any([("method", "get-transaction-by-hash"), ("method", "get-transaction-receipt")]))]
     pub hashes: Vec<String>,
 
+    #[arg(long = "address", required_if_eq("method", "get-balance"))]
+    pub address: Option<String>,
+
+    #[arg(long = "date", required_if_eq("method", "get-balance"), help = "Date in YYYY-MM-DD format")]
+    pub date: Option<String>,
+
+    #[arg(long = "block-range-lo", help = "Lower bound for block search (optional, will be estimated if not provided)")]
+    pub block_range_lo: Option<u64>,
+
+    #[arg(long = "block-range-hi", help = "Upper bound for block search (optional, defaults to latest)")]
+    pub block_range_hi: Option<u64>,
+
     #[arg(long = "tag", conflicts_with_all = ["from", "to", "numbers"])]
     pub tag: Option<String>,
 
     #[arg(long = "numbers", conflicts_with_all = ["from", "to", "tag"])]
     pub numbers: Vec<u64>,
 
-    #[arg(long = "from", required_unless_present_any = ["tag", "numbers"])]
+    #[arg(long = "from")]
     pub from: Option<u64>,
 
-    #[arg(long = "to", required_unless_present_any = ["tag", "numbers"])]
+    #[arg(long = "to")]
     pub to: Option<u64>,
 
     #[arg(long = "chunk-size", default_value = "50")]
