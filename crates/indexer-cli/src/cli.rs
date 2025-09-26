@@ -33,13 +33,23 @@ pub struct Config {
     #[arg(long = "address", required_if_eq("method", "get-balance"))]
     pub address: Option<String>,
 
-    #[arg(long = "date", required_if_eq("method", "get-balance"), help = "Date in YYYY-MM-DD format")]
+    #[arg(
+        long = "date",
+        required_if_eq("method", "get-balance"),
+        help = "Date in YYYY-MM-DD format"
+    )]
     pub date: Option<String>,
 
-    #[arg(long = "block-range-lo", help = "Lower bound for block search (optional, will be estimated if not provided)")]
+    #[arg(
+        long = "block-range-lo",
+        help = "Lower bound for block search (optional, will be estimated if not provided)"
+    )]
     pub block_range_lo: Option<u64>,
 
-    #[arg(long = "block-range-hi", help = "Upper bound for block search (optional, defaults to latest)")]
+    #[arg(
+        long = "block-range-hi",
+        help = "Upper bound for block search (optional, defaults to latest)"
+    )]
     pub block_range_hi: Option<u64>,
 
     #[arg(long = "tag", conflicts_with_all = ["from", "to", "numbers"])]

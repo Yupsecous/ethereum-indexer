@@ -23,8 +23,13 @@ async fn main() -> anyhow::Result<()> {
             }
         }
         cli::Method::GetBlockByNumber => {
-            if cfg.tag.is_none() && cfg.numbers.is_empty() && (cfg.from.is_none() || cfg.to.is_none()) {
-                anyhow::bail!("--tag, --numbers, or both --from and --to are required for get-block-by-number method");
+            if cfg.tag.is_none()
+                && cfg.numbers.is_empty()
+                && (cfg.from.is_none() || cfg.to.is_none())
+            {
+                anyhow::bail!(
+                    "--tag, --numbers, or both --from and --to are required for get-block-by-number method"
+                );
             }
         }
         cli::Method::GetTransactionByHash | cli::Method::GetTransactionReceipt => {
