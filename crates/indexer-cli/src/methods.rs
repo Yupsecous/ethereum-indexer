@@ -4,7 +4,7 @@ use alloy::rpc::types::eth::BlockNumberOrTag;
 use futures::StreamExt;
 use indexer::{
     BlockByNumberBuilder, EthereumIndexer, Range, TraceFilterBuilder, TraceFilterPlan,
-    TxByHashPlan, TxReceiptPlan, order_by_range,
+    TxByHashPlan, TxReceiptPlan, order_by_range, balance_at_timestamp, OnMiss,
 };
 use tracing::{error, info};
 
@@ -305,6 +305,175 @@ fn print_progress(
         completed_blocks as f64 / elapsed,
         total_items as f64 / elapsed
     );
+}
+
+pub async fn run_get_balance(
+    cfg: cli::Config,
+    indexer: &EthereumIndexer,
+    start: std::time::Instant,
+) -> anyhow::Result<()> {
+    let address: Address = cfg.address.as_ref().unwrap().parse()?;
+    let date_str = cfg.date.as_ref().unwrap();
+
+    // Parse date to Unix timestamp (YYYY-MM-DD 00:00 UTC)
+    let timestamp = parse_date_to_timestamp(date_str)?;
+
+    // Determine block range bounds
+    let (lo, hi) = determine_block_bounds(&cfg, timestamp, indexer).await?;
+
+    info!("Querying balance for address {} at date {} (timestamp: {})", address, date_str, timestamp);
+    info!("Block search range: {} to {}", lo, hi);
+
+    // Use AutoWidenToLatest policy for CLI user-friendliness
+    match balance_at_timestamp(indexer, address, timestamp, lo, hi, OnMiss::AutoWidenToLatest).await {
+        Ok(Some(balance)) => {
+            let eth_balance = format_wei_to_eth(balance);
+            info!("=== BALANCE RESULT ===");
+            info!("Address: {}", address);
+            info!("Date: {} (00:00 UTC)", date_str);
+            info!("Balance: {} ETH", eth_balance);
+            println!("{}", eth_balance); // Also print to stdout for easy parsing
+        }
+        Ok(None) => {
+            error!("Could not determine balance at the specified date (returned None)");
+        }
+        Err(e) => {
+            error!("Error querying balance: {}", e);
+        }
+    }
+
+    print_final_results(1, 1, start);
+    Ok(())
+}
+
+fn parse_date_to_timestamp(date_str: &str) -> anyhow::Result<u64> {
+    // Parse YYYY-MM-DD format
+    let parts: Vec<&str> = date_str.split('-').collect();
+    if parts.len() != 3 {
+        anyhow::bail!("Invalid date format. Use YYYY-MM-DD");
+    }
+
+    let year: u32 = parts[0].parse().map_err(|_| anyhow::anyhow!("Invalid year"))?;
+    let month: u32 = parts[1].parse().map_err(|_| anyhow::anyhow!("Invalid month"))?;
+    let day: u32 = parts[2].parse().map_err(|_| anyhow::anyhow!("Invalid day"))?;
+
+    if month == 0 || month > 12 {
+        anyhow::bail!("Month must be between 1 and 12");
+    }
+    if day == 0 || day > 31 {
+        anyhow::bail!("Day must be between 1 and 31");
+    }
+
+    // Convert to Unix timestamp (00:00 UTC)
+    // Simple calculation: days since Unix epoch * 86400
+    let days_since_epoch = days_since_unix_epoch(year, month, day)?;
+    Ok(days_since_epoch * 86400)
+}
+
+fn days_since_unix_epoch(year: u32, month: u32, day: u32) -> anyhow::Result<u64> {
+    // Unix epoch started 1970-01-01
+    if year < 1970 {
+        anyhow::bail!("Year must be 1970 or later");
+    }
+
+    let mut days = 0u64;
+
+    // Add days for complete years
+    for y in 1970..year {
+        days += if is_leap_year(y) { 366 } else { 365 };
+    }
+
+    // Add days for complete months in the current year
+    let days_in_months = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    for m in 1..month {
+        days += days_in_months[m as usize - 1] as u64;
+        if m == 2 && is_leap_year(year) {
+            days += 1; // February has 29 days in leap years
+        }
+    }
+
+    // Add the day of the month (subtract 1 since we want 00:00 of that day)
+    days += (day - 1) as u64;
+
+    Ok(days)
+}
+
+fn is_leap_year(year: u32) -> bool {
+    (year % 4 == 0) && (year % 100 != 0 || year % 400 == 0)
+}
+
+async fn determine_block_bounds(
+    cfg: &cli::Config,
+    timestamp: u64,
+    indexer: &EthereumIndexer
+) -> anyhow::Result<(u64, u64)> {
+    let lo = if let Some(lo) = cfg.block_range_lo {
+        lo
+    } else {
+        // Estimate based on timestamp - rough estimate of 12 seconds per block
+        // Genesis block was around timestamp 1438269973 (July 30, 2015)
+        let genesis_timestamp = 1438269973u64;
+        if timestamp <= genesis_timestamp {
+            1 // Start from block 1 if before genesis
+        } else {
+            let blocks_since_genesis = (timestamp - genesis_timestamp) / 12;
+            blocks_since_genesis.max(1) // Ensure at least block 1
+        }
+    };
+
+    let hi = if let Some(hi) = cfg.block_range_hi {
+        hi
+    } else {
+        // Default to latest block
+        use indexer::BlockByNumberBuilder;
+        let plan = BlockByNumberBuilder::new().latest().plan()?;
+        let work_items = plan.plan()?;
+
+        // Get latest block number
+        let mut latest_block_number = 0u64;
+        let mut stream = indexer.run(work_items);
+        if let Some(result) = stream.next().await {
+            match result {
+                Ok((_key, value)) => {
+                    if let Ok(Some(block)) = indexer::BlockByNumberPlan::decode(value) {
+                        latest_block_number = block.header.number;
+                    }
+                }
+                Err(e) => {
+                    anyhow::bail!("Failed to get latest block: {}", e);
+                }
+            }
+        }
+
+        if latest_block_number == 0 {
+            anyhow::bail!("Could not determine latest block number");
+        }
+
+        latest_block_number
+    };
+
+    Ok((lo, hi))
+}
+
+fn format_wei_to_eth(wei: alloy::primitives::U256) -> String {
+    // Convert Wei to ETH (divide by 10^18)
+    let eth_divisor = alloy::primitives::U256::from(10u64).pow(alloy::primitives::U256::from(18u64));
+    let eth_whole = wei / eth_divisor;
+    let wei_remainder = wei % eth_divisor;
+
+    // Format with appropriate precision
+    if wei_remainder.is_zero() {
+        format!("{}", eth_whole)
+    } else {
+        // Show up to 18 decimal places, removing trailing zeros
+        let remainder_str = format!("{:0>18}", wei_remainder);
+        let trimmed = remainder_str.trim_end_matches('0');
+        if trimmed.is_empty() {
+            format!("{}", eth_whole)
+        } else {
+            format!("{}.{}", eth_whole, trimmed)
+        }
+    }
 }
 
 fn print_final_results(completed_blocks: u64, total_items: usize, start: std::time::Instant) {
