@@ -40,7 +40,9 @@ pub struct BalanceResponse {
 pub struct GetLogsQuery {
     pub from: Option<u64>,
     pub to: Option<u64>,
+    #[serde(default)]
     pub addresses: Vec<String>,
+    #[serde(default)]
     pub topics: Vec<String>,
     pub chunk_size: Option<u64>,
 }
@@ -49,6 +51,7 @@ pub struct GetLogsQuery {
 pub struct Erc20WalletQuery {
     pub from: Option<u64>,
     pub to: Option<u64>,
+    #[serde(default)]
     pub tokens: Vec<String>,
     pub chunk_size: Option<u64>,
 }
