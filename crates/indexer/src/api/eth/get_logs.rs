@@ -105,9 +105,9 @@ impl GetLogsBuilder {
     }
 }
 
-/// ERC-20 transfers for a watched address, **split lanes** (FROM / TO).
+/// ERC-20 transfers *to/from* a wallet, split lanes (FROM & TO).
 #[derive(Clone, Debug)]
-pub struct Erc20TransfersBuilder {
+pub struct Erc20WalletTransfersBuilder {
     watched: Address,
     from: u64,
     to: u64,
@@ -120,7 +120,7 @@ pub struct Erc20TransfersBuilder {
     transfer_sig: B256,
 }
 
-impl Erc20TransfersBuilder {
+impl Erc20WalletTransfersBuilder {
     pub fn new(watched: Address, from: u64, to: u64, transfer_sig: B256) -> Self {
         Self {
             watched,
@@ -147,7 +147,7 @@ impl Erc20TransfersBuilder {
         self
     }
 
-    /// Build **two** work batches (FROM lane, TO lane) plus the base range.
+    // Build two batches (FROM lane, TO lane) plus base range.
     pub fn plan_split(self) -> anyhow::Result<(Vec<WorkItem>, Vec<WorkItem>, Range)> {
         if self.to < self.from {
             anyhow::bail!("invalid range: to < from");
@@ -183,5 +183,65 @@ impl Erc20TransfersBuilder {
         let from_items = build(topics_from)?;
         let to_items = build(topics_to)?;
         Ok((from_items, to_items, base_range))
+    }
+    // Convenience: merged (FROM ∪ TO) in one vector.
+    pub fn plan(self) -> anyhow::Result<(Vec<WorkItem>, Range)> {
+        let (mut from_items, to_items, range) = self.plan_split()?;
+        from_items.extend(to_items);
+        Ok((from_items, range))
+    }
+}
+
+/// ALL transfers of a *token contract* over [from..to].
+#[derive(Clone, Debug)]
+pub struct Erc20TokenTransfersBuilder {
+    token: Address, // token contract (goes into `address` filter)
+    from: u64,
+    to: u64,
+    chunk_size: u64,
+    transfer_sig: B256, // topic0
+    max_blocks: u64,
+}
+
+impl Erc20TokenTransfersBuilder {
+    pub fn new(token: Address, from: u64, to: u64, transfer_sig: B256) -> Self {
+        Self {
+            token,
+            from,
+            to,
+            chunk_size: 10_000,
+            transfer_sig,
+            max_blocks: 1_000_000,
+        }
+    }
+    pub fn chunk_size(mut self, n: u64) -> Self {
+        self.chunk_size = n.max(1);
+        self
+    }
+    pub fn limit_blocks(mut self, n: u64) -> Self {
+        self.max_blocks = n.max(1);
+        self
+    }
+
+    pub fn plan(self) -> anyhow::Result<(Vec<WorkItem>, Range)> {
+        if self.to < self.from {
+            anyhow::bail!("invalid range: to < from");
+        }
+        let blocks = self.to - self.from + 1;
+        if blocks > self.max_blocks {
+            anyhow::bail!("range too large");
+        }
+
+        let range = Range {
+            from: self.from,
+            to: self.to,
+        };
+        let plan = GetLogsPlan {
+            range,
+            chunk_size: self.chunk_size,
+            addresses: vec![self.token], // filter by token contract
+            topics: vec![Topic::One(self.transfer_sig)], // topic0 = Transfer; topic1/2 Any
+        };
+        Ok((plan.plan()?, range))
     }
 }
