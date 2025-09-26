@@ -1,9 +1,11 @@
+pub mod balance;
 pub mod block;
 pub mod ping;
 pub mod receipt;
 pub mod trace_filter;
 pub mod transaction;
 
+pub use balance::*;
 pub use block::*;
 pub use ping::*;
 pub use receipt::*;

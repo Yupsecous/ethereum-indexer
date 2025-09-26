@@ -17,3 +17,21 @@ pub struct BlockByNumberQuery {
     pub to: Option<u64>,
     pub full: Option<bool>,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct BalanceQuery {
+    pub block_range_lo: Option<u64>,
+    pub block_range_hi: Option<u64>,
+    pub on_miss: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct BalanceResponse {
+    pub address: String,
+    pub date: String,
+    pub timestamp: u64,
+    pub block_number: Option<u64>,
+    pub block_timestamp: Option<u64>,
+    pub balance_wei: String,
+    pub balance_eth: String,
+}
