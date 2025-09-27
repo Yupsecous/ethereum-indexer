@@ -12,6 +12,8 @@ pub enum Method {
     GetTransactionReceipt,
     #[value(name = "get-balance")]
     GetBalance,
+    #[value(name = "get-erc20-balance")]
+    GetErc20Balance,
     #[value(name = "get-logs")]
     GetLogs,
 }
@@ -32,12 +34,19 @@ pub struct Config {
     #[arg(long = "hashes", required_if_eq_any([("method", "get-transaction-by-hash"), ("method", "get-transaction-receipt")]))]
     pub hashes: Vec<String>,
 
-    #[arg(long = "address", required_if_eq("method", "get-balance"))]
+    #[arg(long = "address", required_if_eq_any([("method", "get-balance"), ("method", "get-erc20-balance")]))]
     pub address: Option<String>,
 
     #[arg(
+        long = "token-address",
+        required_if_eq("method", "get-erc20-balance"),
+        help = "ERC-20 token contract address"
+    )]
+    pub token_address: Option<String>,
+
+    #[arg(
         long = "date",
-        required_if_eq("method", "get-balance"),
+        required_if_eq_any([("method", "get-balance"), ("method", "get-erc20-balance")]),
         help = "Date in YYYY-MM-DD format"
     )]
     pub date: Option<String>,
