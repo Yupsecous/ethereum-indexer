@@ -45,6 +45,17 @@ async fn main() -> anyhow::Result<()> {
                 anyhow::bail!("--date is required for get-balance method");
             }
         }
+        cli::Method::GetErc20Balance => {
+            if cfg.address.is_none() {
+                anyhow::bail!("--address is required for get-erc20-balance method");
+            }
+            if cfg.token_address.is_none() {
+                anyhow::bail!("--token-address is required for get-erc20-balance method");
+            }
+            if cfg.date.is_none() {
+                anyhow::bail!("--date is required for get-erc20-balance method");
+            }
+        }
         cli::Method::GetLogs => {
             if cfg.from.is_none() || cfg.to.is_none() {
                 anyhow::bail!("--from and --to are required for get-logs method");
@@ -136,6 +147,20 @@ async fn main() -> anyhow::Result<()> {
                 info!("Block range hi: {}", hi);
             }
         }
+        cli::Method::GetErc20Balance => {
+            let token_address = cfg.token_address.as_ref().unwrap();
+            let address = cfg.address.as_ref().unwrap();
+            let date = cfg.date.as_ref().unwrap();
+            info!("Token: {}", token_address);
+            info!("Owner: {}", address);
+            info!("Date: {}", date);
+            if let Some(lo) = cfg.block_range_lo {
+                info!("Block range lo: {}", lo);
+            }
+            if let Some(hi) = cfg.block_range_hi {
+                info!("Block range hi: {}", hi);
+            }
+        }
         cli::Method::GetLogs => {
             info!(
                 "Blocks: {} to {} (chunk size: {})",
@@ -176,6 +201,9 @@ async fn main() -> anyhow::Result<()> {
         }
         cli::Method::GetBalance => {
             methods::run_get_balance(cfg, &indexer, start).await?;
+        }
+        cli::Method::GetErc20Balance => {
+            methods::run_get_erc20_balance(cfg, &indexer, start).await?;
         }
         cli::Method::GetLogs => {
             methods::run_get_logs(cfg, &indexer, start).await?;

@@ -6,7 +6,7 @@ use indexer::{
     BlockByNumberBuilder, EthereumIndexer, GetLogsPlan, OnMiss, Range, TraceFilterBuilder,
     TraceFilterPlan, TxByHashPlan, TxReceiptPlan,
     api::eth::get_logs::{Erc20TokenTransfersBuilder, Erc20WalletTransfersBuilder, GetLogsBuilder},
-    balance_at_timestamp, order_by_range,
+    balance_at_timestamp, erc20_balance_at_timestamp, order_by_range,
 };
 use tracing::{error, info};
 
@@ -522,49 +522,49 @@ async fn run_erc20_wallet_transfers(
                 |(mut lane_blocks, mut lane_transfers), res| {
                     let lane_name = lane_name.clone();
                     async move {
-                    match res {
-                        Ok((range, value)) => match GetLogsPlan::decode(value) {
-                            Ok(logs) => {
-                                let mut transfer_count = 0;
-                                for log in logs {
-                                    // Use the contracts module for decoding
-                                    use indexer::contracts::erc20::decode_transfer_from_rpc;
+                        match res {
+                            Ok((range, value)) => match GetLogsPlan::decode(value) {
+                                Ok(logs) => {
+                                    let mut transfer_count = 0;
+                                    for log in logs {
+                                        // Use the contracts module for decoding
+                                        use indexer::contracts::erc20::decode_transfer_from_rpc;
 
-                                    if let Some(decoded) = decode_transfer_from_rpc(&log) {
-                                        transfer_count += 1;
-                                        if let Some(tx_hash) = &log.transaction_hash {
-                                            println!(
-                                                "[{}] Transfer: {} -> {} ({}), token={}, tx={}",
-                                                lane_name,
-                                                decoded.from,
-                                                decoded.to,
-                                                decoded.value,
-                                                log.address(),
-                                                tx_hash
-                                            );
+                                        if let Some(decoded) = decode_transfer_from_rpc(&log) {
+                                            transfer_count += 1;
+                                            if let Some(tx_hash) = &log.transaction_hash {
+                                                println!(
+                                                    "[{}] Transfer: {} -> {} ({}), token={}, tx={}",
+                                                    lane_name,
+                                                    decoded.from,
+                                                    decoded.to,
+                                                    decoded.value,
+                                                    log.address(),
+                                                    tx_hash
+                                                );
+                                            }
                                         }
                                     }
+
+                                    lane_transfers += transfer_count;
+                                    lane_blocks += range.to - range.from + 1;
+
+                                    // Show progress for this lane using standard format
+                                    print_progress_with_prefix(
+                                        &lane_name,
+                                        range,
+                                        transfer_count,
+                                        lane_blocks,
+                                        total_blocks,
+                                        lane_transfers,
+                                        start,
+                                    );
                                 }
-
-                                lane_transfers += transfer_count;
-                                lane_blocks += range.to - range.from + 1;
-
-                                // Show progress for this lane using standard format
-                                print_progress_with_prefix(
-                                    &lane_name,
-                                    range,
-                                    transfer_count,
-                                    lane_blocks,
-                                    total_blocks,
-                                    lane_transfers,
-                                    start,
-                                );
-                            }
-                            Err(e) => error!("[{}] decode error: {}", lane_name, e),
-                        },
-                        Err(e) => error!("[{}] {}", lane_name, e),
-                    }
-                    (lane_blocks, lane_transfers)
+                                Err(e) => error!("[{}] decode error: {}", lane_name, e),
+                            },
+                            Err(e) => error!("[{}] {}", lane_name, e),
+                        }
+                        (lane_blocks, lane_transfers)
                     }
                 },
             )
@@ -617,54 +617,53 @@ async fn run_erc20_token_transfers(
     let total_blocks = end_block - start_block + 1;
 
     // Process as a single stream since it's all transfers of one token
-    let (completed_blocks, total_transfers) =
-        order_by_range(indexer.run(work_items), range.from)
-            .fold(
-                (0u64, 0usize),
-                |(mut completed_blocks, mut total_transfers), res| async move {
-                    match res {
-                        Ok((range, value)) => match GetLogsPlan::decode(value) {
-                            Ok(logs) => {
-                                let mut transfer_count = 0;
-                                for log in logs {
-                                    // Use the contracts module for decoding
-                                    use indexer::contracts::erc20::decode_transfer_from_rpc;
+    let (completed_blocks, total_transfers) = order_by_range(indexer.run(work_items), range.from)
+        .fold(
+            (0u64, 0usize),
+            |(mut completed_blocks, mut total_transfers), res| async move {
+                match res {
+                    Ok((range, value)) => match GetLogsPlan::decode(value) {
+                        Ok(logs) => {
+                            let mut transfer_count = 0;
+                            for log in logs {
+                                // Use the contracts module for decoding
+                                use indexer::contracts::erc20::decode_transfer_from_rpc;
 
-                                    if let Some(decoded) = decode_transfer_from_rpc(&log) {
-                                        transfer_count += 1;
-                                        if let Some(tx_hash) = &log.transaction_hash {
-                                            println!(
-                                                "Transfer: {} -> {} ({}), token={}, tx={}",
-                                                decoded.from,
-                                                decoded.to,
-                                                decoded.value,
-                                                log.address(),
-                                                tx_hash
-                                            );
-                                        }
+                                if let Some(decoded) = decode_transfer_from_rpc(&log) {
+                                    transfer_count += 1;
+                                    if let Some(tx_hash) = &log.transaction_hash {
+                                        println!(
+                                            "Transfer: {} -> {} ({}), token={}, tx={}",
+                                            decoded.from,
+                                            decoded.to,
+                                            decoded.value,
+                                            log.address(),
+                                            tx_hash
+                                        );
                                     }
                                 }
-
-                                total_transfers += transfer_count;
-                                completed_blocks += range.to - range.from + 1;
-
-                                print_progress(
-                                    range,
-                                    transfer_count,
-                                    completed_blocks,
-                                    total_blocks,
-                                    total_transfers,
-                                    start,
-                                );
                             }
-                            Err(e) => error!("decode error: {}", e),
-                        },
-                        Err(e) => error!("{}", e),
-                    }
-                    (completed_blocks, total_transfers)
-                },
-            )
-            .await;
+
+                            total_transfers += transfer_count;
+                            completed_blocks += range.to - range.from + 1;
+
+                            print_progress(
+                                range,
+                                transfer_count,
+                                completed_blocks,
+                                total_blocks,
+                                total_transfers,
+                                start,
+                            );
+                        }
+                        Err(e) => error!("decode error: {}", e),
+                    },
+                    Err(e) => error!("{}", e),
+                }
+                (completed_blocks, total_transfers)
+            },
+        )
+        .await;
 
     print_final_results(completed_blocks, total_transfers, start);
     Ok(())
@@ -734,21 +733,14 @@ fn is_leap_year(year: u32) -> bool {
 
 async fn determine_block_bounds(
     cfg: &cli::Config,
-    timestamp: u64,
+    _timestamp: u64,
     indexer: &EthereumIndexer,
 ) -> anyhow::Result<(u64, u64)> {
     let lo = if let Some(lo) = cfg.block_range_lo {
         lo
     } else {
-        // Estimate based on timestamp - rough estimate of 12 seconds per block
-        // Genesis block was around timestamp 1438269973 (July 30, 2015)
-        let genesis_timestamp = 1438269973u64;
-        if timestamp <= genesis_timestamp {
-            1 // Start from block 1 if before genesis
-        } else {
-            let blocks_since_genesis = (timestamp - genesis_timestamp) / 12;
-            blocks_since_genesis.max(1) // Ensure at least block 1
-        }
+        // Default to block 0 when no range provided - let binary search handle it
+        0
     };
 
     let hi = if let Some(hi) = cfg.block_range_hi {
@@ -805,6 +797,59 @@ fn format_wei_to_eth(wei: alloy::primitives::U256) -> String {
             format!("{}.{}", eth_whole, trimmed)
         }
     }
+}
+
+pub async fn run_get_erc20_balance(
+    cfg: cli::Config,
+    indexer: &EthereumIndexer,
+    start: std::time::Instant,
+) -> anyhow::Result<()> {
+    let token_address: Address = cfg.token_address.as_ref().unwrap().parse()?;
+    let owner_address: Address = cfg.address.as_ref().unwrap().parse()?;
+    let date_str = cfg.date.as_ref().unwrap();
+
+    // Parse date to Unix timestamp (YYYY-MM-DD 00:00 UTC)
+    let timestamp = parse_date_to_timestamp(date_str)?;
+
+    // Determine block range bounds
+    let (lo, hi) = determine_block_bounds(&cfg, timestamp, indexer).await?;
+
+    info!(
+        "Querying ERC-20 balance for token {} owner {} at date {} (timestamp: {})",
+        token_address, owner_address, date_str, timestamp
+    );
+    info!("Block search range: {} to {}", lo, hi);
+
+    // Use AutoWidenToLatest policy for CLI user-friendliness
+    match erc20_balance_at_timestamp(
+        indexer,
+        token_address,
+        owner_address,
+        timestamp,
+        lo,
+        hi,
+        OnMiss::AutoWidenToLatest,
+    )
+    .await
+    {
+        Ok(Some(balance)) => {
+            info!("=== ERC-20 BALANCE RESULT ===");
+            info!("Token: {}", token_address);
+            info!("Owner: {}", owner_address);
+            info!("Date: {} (00:00 UTC)", date_str);
+            info!("Balance: {} (raw units)", balance);
+            println!("{}", balance); // Also print to stdout for easy parsing
+        }
+        Ok(None) => {
+            error!("Could not determine token balance at the specified date (returned None)");
+        }
+        Err(e) => {
+            error!("Error querying token balance: {}", e);
+        }
+    }
+
+    print_final_results(1, 1, start);
+    Ok(())
 }
 
 fn print_final_results(completed_blocks: u64, total_items: usize, start: std::time::Instant) {
