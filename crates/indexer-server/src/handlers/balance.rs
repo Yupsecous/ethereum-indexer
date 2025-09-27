@@ -294,7 +294,9 @@ pub async fn get_erc20_balance_at_date(
     };
 
     // Query ERC-20 balance at timestamp
-    match erc20_balance_at_timestamp(&engine, token_addr, owner_addr, timestamp, lo, hi, on_miss).await {
+    match erc20_balance_at_timestamp(&engine, token_addr, owner_addr, timestamp, lo, hi, on_miss)
+        .await
+    {
         Ok(Some(balance)) => {
             info!(
                 "ERC-20 balance found: {} (raw units) for token {} owner {} at date {} (timestamp {})",
