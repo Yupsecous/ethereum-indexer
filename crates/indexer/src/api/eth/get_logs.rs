@@ -205,7 +205,13 @@ impl Erc20WalletTransfersBuilder {
     }
 
     /// Ergonomic API: returns separate work items for FROM and TO lanes
-    pub fn plan_split(self) -> anyhow::Result<(Vec<crate::exec::WorkItem>, Vec<crate::exec::WorkItem>, Range)> {
+    pub fn plan_split(
+        self,
+    ) -> anyhow::Result<(
+        Vec<crate::exec::WorkItem>,
+        Vec<crate::exec::WorkItem>,
+        Range,
+    )> {
         if self.to < self.from {
             anyhow::bail!("invalid range: to < from");
         }
