@@ -1,4 +1,5 @@
 pub mod api;
+pub mod contracts;
 pub mod exec;
 pub mod methods;
 pub mod order;

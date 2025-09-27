@@ -1,3 +1,4 @@
+pub mod call;
 pub mod get_balance;
 pub mod get_block_by_number;
 pub mod get_logs;
