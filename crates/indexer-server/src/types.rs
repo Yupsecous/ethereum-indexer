@@ -36,6 +36,17 @@ pub struct BalanceResponse {
     pub balance_eth: String,
 }
 
+#[derive(Serialize)]
+pub struct Erc20BalanceResponse {
+    pub token_address: String,
+    pub owner_address: String,
+    pub date: String,
+    pub timestamp: u64,
+    pub block_number: Option<u64>,
+    pub block_timestamp: Option<u64>,
+    pub balance: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct GetLogsQuery {
     pub from: Option<u64>,

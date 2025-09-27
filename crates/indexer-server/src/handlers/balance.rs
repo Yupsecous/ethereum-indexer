@@ -1,10 +1,10 @@
-use crate::types::{BalanceQuery, BalanceResponse};
+use crate::types::{BalanceQuery, BalanceResponse, Erc20BalanceResponse};
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::Json,
 };
-use indexer::{EthereumIndexer, OnMiss, balance_at_timestamp};
+use indexer::{EthereumIndexer, OnMiss, balance_at_timestamp, erc20_balance_at_timestamp};
 use std::sync::Arc;
 use tracing::{info, warn};
 
@@ -258,6 +258,71 @@ async fn determine_block_bounds(
     };
 
     Ok((lo, hi))
+}
+
+pub async fn get_erc20_balance_at_date(
+    State(engine): State<Arc<EthereumIndexer>>,
+    Path((token_address, owner_address, date)): Path<(String, String, String)>,
+    Query(params): Query<BalanceQuery>,
+) -> Result<Json<Erc20BalanceResponse>, StatusCode> {
+    info!(
+        "getErc20Balance request: token={}, owner={}, date={}, params={:?}",
+        token_address, owner_address, date, params
+    );
+
+    // Validate Ethereum addresses
+    let token_addr = validate_ethereum_address(&token_address)?;
+    let owner_addr = validate_ethereum_address(&owner_address)?;
+
+    // Validate and parse date format
+    let timestamp = parse_date_to_timestamp(&date)?;
+
+    // Determine block range bounds
+    let (lo, hi) = determine_block_bounds(&params, timestamp, &engine).await?;
+
+    info!("Block search range: {} to {}", lo, hi);
+
+    // Determine miss handling policy
+    let on_miss = match params.on_miss.as_deref() {
+        Some("strict") => OnMiss::Strict,
+        Some("clamp") => OnMiss::ClampToBounds,
+        Some("auto_widen") | None => OnMiss::AutoWidenToLatest, // Default
+        Some(other) => {
+            warn!("Invalid on_miss policy: {}", other);
+            return Err(StatusCode::BAD_REQUEST);
+        }
+    };
+
+    // Query ERC-20 balance at timestamp
+    match erc20_balance_at_timestamp(&engine, token_addr, owner_addr, timestamp, lo, hi, on_miss).await {
+        Ok(Some(balance)) => {
+            info!(
+                "ERC-20 balance found: {} (raw units) for token {} owner {} at date {} (timestamp {})",
+                balance, token_address, owner_address, date, timestamp
+            );
+
+            Ok(Json(Erc20BalanceResponse {
+                token_address: token_address.to_lowercase(),
+                owner_address: owner_address.to_lowercase(),
+                date: date.clone(),
+                timestamp,
+                block_number: None,    // TODO: Return actual block number used
+                block_timestamp: None, // TODO: Return actual block timestamp used
+                balance: balance.to_string(),
+            }))
+        }
+        Ok(None) => {
+            info!(
+                "No ERC-20 balance found for token {} owner {} at date {} (timestamp {})",
+                token_address, owner_address, date, timestamp
+            );
+            Err(StatusCode::NOT_FOUND)
+        }
+        Err(e) => {
+            warn!("ERC-20 balance query error: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
 }
 
 /// Convert Wei to ETH string with full precision
