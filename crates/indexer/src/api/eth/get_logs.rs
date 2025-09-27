@@ -1,18 +1,16 @@
 use crate::{
-    exec::{Range, WorkItem},
-    methods::eth::get_logs::{GetLogsPlan, Topic, helpers},
+    exec::Range,
+    methods::eth::get_logs::{GetLogsPlan, Topic},
 };
 use alloy::primitives::{Address, B256};
 
-/// General `eth_getLogs` builder.
 #[derive(Clone, Debug)]
 pub struct GetLogsBuilder {
     from: u64,
     to: u64,
     chunk_size: u64,
     addresses: Vec<Address>,
-    topics: Vec<Topic>, // up to 4
-    // guards
+    topics: Vec<Topic>,
     max_blocks: u64,
     max_addresses: usize,
     max_topic_or: usize,
@@ -105,21 +103,18 @@ impl GetLogsBuilder {
     }
 }
 
-/// ERC-20 transfers *to/from* a wallet, split lanes (FROM & TO).
+/// Wallet-centric: transfers where `watched` is `from` **or** `to`.
 #[derive(Clone, Debug)]
 pub struct Erc20WalletTransfersBuilder {
     watched: Address,
     from: u64,
     to: u64,
     chunk_size: u64,
-    tokens: Vec<Address>, // optional allow-list; empty = any token
-    // guards
+    tokens: Vec<Address>, // optional allow-list
     max_blocks: u64,
     max_tokens: usize,
-    // topic0 for Transfer
     transfer_sig: B256,
 }
-
 impl Erc20WalletTransfersBuilder {
     pub fn new(watched: Address, from: u64, to: u64, transfer_sig: B256) -> Self {
         Self {
@@ -147,8 +142,7 @@ impl Erc20WalletTransfersBuilder {
         self
     }
 
-    // Build two batches (FROM lane, TO lane) plus base range.
-    pub fn plan_split(self) -> anyhow::Result<(Vec<WorkItem>, Vec<WorkItem>, Range)> {
+    pub fn work_items(self) -> anyhow::Result<Vec<crate::exec::WorkItem>> {
         if self.to < self.from {
             anyhow::bail!("invalid range: to < from");
         }
@@ -160,49 +154,129 @@ impl Erc20WalletTransfersBuilder {
             anyhow::bail!("too many token addresses");
         }
 
-        let base_range = Range {
+        use crate::contracts::erc20::{TRANSFER_SIG, indexed_address_topic};
+        let sig = if self.transfer_sig == B256::ZERO {
+            TRANSFER_SIG
+        } else {
+            self.transfer_sig
+        };
+
+        // FROM lane
+        let from_topics = vec![
+            Topic::One(sig),
+            Topic::One(indexed_address_topic(self.watched)),
+            Topic::Any,
+            Topic::Any,
+        ];
+        // TO lane
+        let to_topics = vec![
+            Topic::One(sig),
+            Topic::Any,
+            Topic::One(indexed_address_topic(self.watched)),
+            Topic::Any,
+        ];
+
+        let base = GetLogsPlan {
+            range: Range {
+                from: self.from,
+                to: self.to,
+            },
+            chunk_size: self.chunk_size,
+            addresses: self.tokens.clone(), // empty => any token
+            topics: vec![],
+        };
+
+        let mut out = Vec::new();
+        out.extend(
+            GetLogsPlan {
+                topics: from_topics.clone(),
+                ..base.clone()
+            }
+            .plan()?,
+        );
+        out.extend(
+            GetLogsPlan {
+                topics: to_topics.clone(),
+                ..base
+            }
+            .plan()?,
+        );
+        Ok(out)
+    }
+
+    /// Ergonomic API: returns separate work items for FROM and TO lanes
+    pub fn plan_split(self) -> anyhow::Result<(Vec<crate::exec::WorkItem>, Vec<crate::exec::WorkItem>, Range)> {
+        if self.to < self.from {
+            anyhow::bail!("invalid range: to < from");
+        }
+        let blocks = self.to - self.from + 1;
+        if blocks > self.max_blocks {
+            anyhow::bail!("range too large");
+        }
+        if self.tokens.len() > self.max_tokens {
+            anyhow::bail!("too many token addresses");
+        }
+
+        use crate::contracts::erc20::{TRANSFER_SIG, indexed_address_topic};
+        let sig = if self.transfer_sig == B256::ZERO {
+            TRANSFER_SIG
+        } else {
+            self.transfer_sig
+        };
+
+        let range = Range {
             from: self.from,
             to: self.to,
         };
 
-        // Build topics for each lane
-        let topics_from = helpers::erc20_transfer_from(self.transfer_sig, self.watched);
-        let topics_to = helpers::erc20_transfer_to(self.transfer_sig, self.watched);
+        // FROM lane
+        let from_topics = vec![
+            Topic::One(sig),
+            Topic::One(indexed_address_topic(self.watched)),
+            Topic::Any,
+            Topic::Any,
+        ];
+        // TO lane
+        let to_topics = vec![
+            Topic::One(sig),
+            Topic::Any,
+            Topic::One(indexed_address_topic(self.watched)),
+            Topic::Any,
+        ];
 
-        // Materialize each lane into WorkItems
-        let build = |topics: [Topic; 4]| -> anyhow::Result<Vec<WorkItem>> {
-            GetLogsPlan {
-                range: base_range,
-                chunk_size: self.chunk_size,
-                addresses: self.tokens.clone(), // empty => any token
-                topics: topics.to_vec(),
-            }
-            .plan()
+        let base = GetLogsPlan {
+            range: range.clone(),
+            chunk_size: self.chunk_size,
+            addresses: self.tokens.clone(), // empty => any token
+            topics: vec![],
         };
 
-        let from_items = build(topics_from)?;
-        let to_items = build(topics_to)?;
-        Ok((from_items, to_items, base_range))
-    }
-    // Convenience: merged (FROM ∪ TO) in one vector.
-    pub fn plan(self) -> anyhow::Result<(Vec<WorkItem>, Range)> {
-        let (mut from_items, to_items, range) = self.plan_split()?;
-        from_items.extend(to_items);
-        Ok((from_items, range))
+        let from_items = GetLogsPlan {
+            topics: from_topics,
+            ..base.clone()
+        }
+        .plan()?;
+
+        let to_items = GetLogsPlan {
+            topics: to_topics,
+            ..base
+        }
+        .plan()?;
+
+        Ok((from_items, to_items, range))
     }
 }
 
-/// ALL transfers of a *token contract* over [from..to].
+/// Token-centric: **all** transfers of a specific token contract.
 #[derive(Clone, Debug)]
 pub struct Erc20TokenTransfersBuilder {
-    token: Address, // token contract (goes into `address` filter)
+    token: Address,
     from: u64,
     to: u64,
     chunk_size: u64,
-    transfer_sig: B256, // topic0
     max_blocks: u64,
+    transfer_sig: B256,
 }
-
 impl Erc20TokenTransfersBuilder {
     pub fn new(token: Address, from: u64, to: u64, transfer_sig: B256) -> Self {
         Self {
@@ -210,20 +284,21 @@ impl Erc20TokenTransfersBuilder {
             from,
             to,
             chunk_size: 10_000,
-            transfer_sig,
             max_blocks: 1_000_000,
+            transfer_sig,
         }
     }
     pub fn chunk_size(mut self, n: u64) -> Self {
         self.chunk_size = n.max(1);
         self
     }
-    pub fn limit_blocks(mut self, n: u64) -> Self {
-        self.max_blocks = n.max(1);
+    pub fn limits(mut self, max_blocks: u64) -> Self {
+        self.max_blocks = max_blocks.max(1);
         self
     }
 
-    pub fn plan(self) -> anyhow::Result<(Vec<WorkItem>, Range)> {
+    /// Ergonomic API: returns work items and range directly
+    pub fn plan(self) -> anyhow::Result<(Vec<crate::exec::WorkItem>, Range)> {
         if self.to < self.from {
             anyhow::bail!("invalid range: to < from");
         }
@@ -232,16 +307,26 @@ impl Erc20TokenTransfersBuilder {
             anyhow::bail!("range too large");
         }
 
+        use crate::contracts::erc20::TRANSFER_SIG;
+        let sig = if self.transfer_sig == B256::ZERO {
+            TRANSFER_SIG
+        } else {
+            self.transfer_sig
+        };
+
         let range = Range {
             from: self.from,
             to: self.to,
         };
+
         let plan = GetLogsPlan {
-            range,
+            range: range.clone(),
             chunk_size: self.chunk_size,
-            addresses: vec![self.token], // filter by token contract
-            topics: vec![Topic::One(self.transfer_sig)], // topic0 = Transfer; topic1/2 Any
+            addresses: vec![self.token], // filter by contract
+            topics: vec![Topic::One(sig), Topic::Any, Topic::Any, Topic::Any],
         };
-        Ok((plan.plan()?, range))
+
+        let work_items = plan.plan()?;
+        Ok((work_items, range))
     }
 }
