@@ -4,7 +4,7 @@ mod types;
 use alloy::transports::http::reqwest::Url;
 use axum::{Router, routing::get};
 use handlers::{
-    get_balance_at_date, get_block_by_number, get_logs_erc20_token, get_logs_erc20_wallet,
+    get_balance_at_date, get_erc20_balance_at_date, get_block_by_number, get_logs_erc20_token, get_logs_erc20_wallet,
     get_logs_general, get_transaction_by_hash, get_transaction_receipt, ping,
     trace_filter_no_address, trace_filter_with_address,
 };
@@ -59,6 +59,10 @@ async fn main() -> anyhow::Result<()> {
             "/api/eth/getBalance/{address}/{date}",
             get(get_balance_at_date),
         )
+        .route(
+            "/api/eth/getErc20Balance/{token_address}/{owner_address}/{date}",
+            get(get_erc20_balance_at_date),
+        )
         .route("/api/eth/getLogs", get(get_logs_general))
         .route(
             "/api/eth/getLogs/erc20/wallet/{address}",
@@ -71,9 +75,9 @@ async fn main() -> anyhow::Result<()> {
         .with_state(shared_engine);
 
     let port = std::env::var("PORT")
-        .unwrap_or_else(|_| "3000".to_string())
+        .unwrap_or_else(|_| "8080".to_string())
         .parse::<u16>()
-        .unwrap_or(3000);
+        .unwrap_or(8080);
 
     let addr = format!("0.0.0.0:{}", port);
     let listener = TcpListener::bind(&addr).await?;

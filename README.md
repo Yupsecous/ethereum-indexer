@@ -19,6 +19,9 @@ Try the example scripts in the `./scripts/` directory:
 # Balance queries
 ./scripts/balance_query.sh
 
+# ERC-20 balance queries
+./scripts/erc20_balance_query.sh
+
 # Trace filtering
 ./scripts/quick_test.sh
 
@@ -69,6 +72,7 @@ cargo run -p indexer-cli -- --method get-transaction-receipt --rpc URL --hashes 
 
 # Balance queries
 cargo run -p indexer-cli -- --method get-balance --rpc URL --address 0x... --date 2024-01-01
+cargo run -p indexer-cli -- --method get-erc20-balance --rpc URL --token-address 0x... --address 0x... --date 2024-01-01
 
 # Log queries
 cargo run -p indexer-cli -- --method get-logs --rpc URL --from N --to N --addresses 0x...
@@ -102,6 +106,7 @@ The `./scripts/` directory contains ready-to-run examples:
 | `erc20_token_transfers.sh` | Track ALL transfers of a specific ERC-20 token |
 | `general_logs.sh` | Query logs from specific contract addresses |
 | `balance_query.sh` | Get ETH balance at a specific date |
+| `erc20_balance_query.sh` | Get ERC-20 token balance at a specific date |
 | `logs_test.sh` | Original ERC-20 wallet transfer test |
 | `quick_test.sh` | Trace filter benchmark |
 | `block_bench.sh` | Block query benchmark |
@@ -132,56 +137,42 @@ cargo run -p indexer-server
 - `GET /api/eth/getTransactionReceipt/{hash}`
 
 **Balance Queries:**
-- `GET /api/eth/getBalance/{address}/{date}` - Balance at date (YYYY-MM-DD format, 00:00 UTC)
+- `GET /api/eth/getBalance/{address}/{date}` - ETH balance at date (YYYY-MM-DD format, 00:00 UTC)
 - `GET /api/eth/getBalance/{address}/{date}?block_range_lo=N&block_range_hi=N` - With explicit block ranges
 - `GET /api/eth/getBalance/{address}/{date}?on_miss=strict` - With custom miss handling policy
+- `GET /api/eth/getErc20Balance/{token_address}/{owner_address}/{date}` - ERC-20 token balance at date
+- `GET /api/eth/getErc20Balance/{token_address}/{owner_address}/{date}?block_range_lo=N&block_range_hi=N` - With explicit block ranges
 
 **Log Queries:**
 - `GET /api/eth/getLogs?from=N&to=N&addresses=0x...&topics=0x...` - General contract logs
 - `GET /api/eth/getLogs/erc20/wallet/{address}?from=N&to=N&tokens=0x...` - ERC-20 transfers to/from wallet
 - `GET /api/eth/getLogs/erc20/token/{address}?from=N&to=N` - All transfers of specific ERC-20 token
 
+### Balance Query Examples
+
+**ETH Balance:**
+```bash
+curl "http://localhost:8080/api/eth/getBalance/0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045/2024-01-01"
+```
+
+**ERC-20 Balance:**
+```bash
+curl "http://localhost:8080/api/eth/getErc20Balance/0x6c3ea9036406852006290770bedfcaba0e23a0e8/0x870585E3AF9dA7ff5dcd8f897EA0756f60F69cc1/2025-07-02"
+```
+
 ### Log Query Examples
 
 **General Logs:**
 ```bash
-curl "http://localhost:3000/api/eth/getLogs?from=4961600&to=4961700&addresses=0xA0b86a33E6441b73aE6b5b0e48e95AD1A756b3a5"
+curl "http://localhost:8080/api/eth/getLogs?from=4961600&to=4961700&addresses=0xA0b86a33E6441b73aE6b5b0e48e95AD1A756b3a5"
 ```
 
 **ERC-20 Wallet Transfers:**
 ```bash
-curl "http://localhost:3000/api/eth/getLogs/erc20/wallet/0xaa7a9ca87d3694b5755f213b5d04094b8d0f0a6f?from=4961600&to=4961700"
+curl "http://localhost:8080/api/eth/getLogs/erc20/wallet/0xaa7a9ca87d3694b5755f213b5d04094b8d0f0a6f?from=4961600&to=4961700"
 ```
 
 **ERC-20 Token Transfers:**
 ```bash
-curl "http://localhost:3000/api/eth/getLogs/erc20/token/0xaa7a9ca87d3694b5755f213b5d04094b8d0f0a6f?from=4961600&to=4961700"
+curl "http://localhost:8080/api/eth/getLogs/erc20/token/0xaa7a9ca87d3694b5755f213b5d04094b8d0f0a6f?from=4961600&to=4961700"
 ```
-
-### Response Format
-
-All log endpoints return JSON with this structure:
-```json
-{
-  "logs": [
-    {
-      "type": "Transfer",
-      "from": "0x...",
-      "to": "0x...",
-      "value": "1000000000000000000",
-      "token": "0x...",
-      "transaction_hash": "0x...",
-      "block_number": 18000050,
-      "log_index": 42
-    }
-  ],
-  "metadata": {
-    "from_block": 18000000,
-    "to_block": 18000100,
-    "total_logs": 1,
-    "chunk_size": 1000,
-    "transfer_type": "wallet"
-  }
-}
-```
-
