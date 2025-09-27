@@ -1,4 +1,5 @@
 pub mod engine;
+pub mod erc20;
 pub mod eth;
 pub mod trace;
 pub mod util {

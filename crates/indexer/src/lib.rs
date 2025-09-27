@@ -13,7 +13,7 @@ pub use api::{
     TraceFilterBuilder,
     TxByHashBuilder,
     TxReceiptBuilder,
-    balance::{OnMiss, balance_at_timestamp},
+    balance::{OnMiss, balance_at_timestamp, erc20_balance_at_timestamp},
     // ergonomic helpers
     eth::get_balance::{GetBalanceBuilder, get_balance_at_block, get_balance_at_timestamp},
 };
