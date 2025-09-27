@@ -527,23 +527,10 @@ async fn run_erc20_wallet_transfers(
                             Ok(logs) => {
                                 let mut transfer_count = 0;
                                 for log in logs {
-                                    // Try to decode as ERC-20 Transfer event
-                                    use alloy::sol;
-                                    sol! {
-                                        interface IERC20 {
-                                            event Transfer(address indexed from, address indexed to, uint256 value);
-                                        }
-                                    }
+                                    // Use the contracts module for decoding
+                                    use indexer::contracts::erc20::decode_transfer_from_rpc;
 
-                                    // Convert RPC Log to primitive Log for decoding
-                                    let primitive_log = alloy::primitives::Log {
-                                        address: log.address(),
-                                        data: alloy::primitives::LogData::new(
-                                            log.topics().to_vec(),
-                                            log.data().data.clone(),
-                                        ).unwrap(),
-                                    };
-                                    if let Ok(decoded) = IERC20::Transfer::decode_log(&primitive_log) {
+                                    if let Some(decoded) = decode_transfer_from_rpc(&log) {
                                         transfer_count += 1;
                                         if let Some(tx_hash) = &log.transaction_hash {
                                             println!(
@@ -630,66 +617,54 @@ async fn run_erc20_token_transfers(
     let total_blocks = end_block - start_block + 1;
 
     // Process as a single stream since it's all transfers of one token
-    let (completed_blocks, total_transfers) = order_by_range(indexer.run(work_items), range.from)
-        .fold(
-            (0u64, 0usize),
-            |(mut completed_blocks, mut total_transfers), res| async move {
-                match res {
-                    Ok((range, value)) => match GetLogsPlan::decode(value) {
-                        Ok(logs) => {
-                            let mut transfer_count = 0;
-                            for log in logs {
-                                // Try to decode as ERC-20 Transfer event
-                                use alloy::sol;
-                                sol! {
-                                    interface IERC20 {
-                                        event Transfer(address indexed from, address indexed to, uint256 value);
+    let (completed_blocks, total_transfers) =
+        order_by_range(indexer.run(work_items), range.from)
+            .fold(
+                (0u64, 0usize),
+                |(mut completed_blocks, mut total_transfers), res| async move {
+                    match res {
+                        Ok((range, value)) => match GetLogsPlan::decode(value) {
+                            Ok(logs) => {
+                                let mut transfer_count = 0;
+                                for log in logs {
+                                    // Use the contracts module for decoding
+                                    use indexer::contracts::erc20::decode_transfer_from_rpc;
+
+                                    if let Some(decoded) = decode_transfer_from_rpc(&log) {
+                                        transfer_count += 1;
+                                        if let Some(tx_hash) = &log.transaction_hash {
+                                            println!(
+                                                "Transfer: {} -> {} ({}), token={}, tx={}",
+                                                decoded.from,
+                                                decoded.to,
+                                                decoded.value,
+                                                log.address(),
+                                                tx_hash
+                                            );
+                                        }
                                     }
                                 }
 
-                                // Convert RPC Log to primitive Log for decoding
-                                let primitive_log = alloy::primitives::Log {
-                                    address: log.address(),
-                                    data: alloy::primitives::LogData::new(
-                                        log.topics().to_vec(),
-                                        log.data().data.clone(),
-                                    ).unwrap(),
-                                };
-                                if let Ok(decoded) = IERC20::Transfer::decode_log(&primitive_log) {
-                                    transfer_count += 1;
-                                    if let Some(tx_hash) = &log.transaction_hash {
-                                        println!(
-                                            "Transfer: {} -> {} ({}), token={}, tx={}",
-                                            decoded.from,
-                                            decoded.to,
-                                            decoded.value,
-                                            log.address(),
-                                            tx_hash
-                                        );
-                                    }
-                                }
+                                total_transfers += transfer_count;
+                                completed_blocks += range.to - range.from + 1;
+
+                                print_progress(
+                                    range,
+                                    transfer_count,
+                                    completed_blocks,
+                                    total_blocks,
+                                    total_transfers,
+                                    start,
+                                );
                             }
-
-                            total_transfers += transfer_count;
-                            completed_blocks += range.to - range.from + 1;
-
-                            print_progress(
-                                range,
-                                transfer_count,
-                                completed_blocks,
-                                total_blocks,
-                                total_transfers,
-                                start,
-                            );
-                        }
-                        Err(e) => error!("decode error: {}", e),
-                    },
-                    Err(e) => error!("{}", e),
-                }
-                (completed_blocks, total_transfers)
-            },
-        )
-        .await;
+                            Err(e) => error!("decode error: {}", e),
+                        },
+                        Err(e) => error!("{}", e),
+                    }
+                    (completed_blocks, total_transfers)
+                },
+            )
+            .await;
 
     print_final_results(completed_blocks, total_transfers, start);
     Ok(())
