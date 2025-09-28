@@ -11,12 +11,13 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
     Menu,
-    Search,
+    ScanQrCode,
     BarChart3,
     Database,
+    DollarSign,
     Coins,
     FileText,
-    GitBranch,
+    ArrowRightToLine,
     Play,
     ExternalLink,
     Copy,
@@ -204,7 +205,7 @@ export default function TransactionsPage() {
             <div className="w-full max-w-7xl mx-auto  bg-white border-4 border-black rounded-3xl shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] overflow-hidden">
                 <header className="border-b-4 border-black p-4 sm:p-6 bg-white/40 backdrop-blur-md">
                     <div className="flex justify-between items-center gap-4">
-                        <div className="flex items-center gap-x-3">
+                        <div className="flex items-center gap-x-5">
                             <Image
                                 src="/logo.png"
                                 alt="Ethereum Indexer Logo"
@@ -260,21 +261,21 @@ export default function TransactionsPage() {
                                 href="/trace"
                                 className="flex items-center gap-2 text-lg font-bold p-3 hover:bg-black/10 rounded-xl"
                             >
-                                <GitBranch className="h-5 w-5" />
+                                <ArrowRightToLine className="h-5 w-5" />
                                 Trace
                             </Link>
                             <Link
                                 href="/transactions"
                                 className="flex items-center gap-2 text-lg font-bold p-3 bg-black text-white rounded-xl"
                             >
-                                <Search className="h-5 w-5" />
+                                <ScanQrCode className="h-5 w-5" />
                                 Transactions
                             </Link>
                             <Link
                                 href="/balances"
                                 className="flex items-center gap-2 text-lg font-bold p-3 hover:bg-black/10 rounded-xl"
                             >
-                                <Coins className="h-5 w-5" />
+                                <DollarSign className="h-5 w-5" />
                                 Balances
                             </Link>
                             <Link
@@ -299,7 +300,7 @@ export default function TransactionsPage() {
                                 <Card className="border-2 border-black rounded-xl">
                                     <CardHeader>
                                         <CardTitle className="flex items-center gap-2">
-                                            <Search className="h-5 w-5" />
+                                            <ScanQrCode className="h-5 w-5" />
                                             Transaction by Hash
                                         </CardTitle>
                                     </CardHeader>

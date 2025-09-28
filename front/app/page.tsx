@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Menu, Activity, Search, Database, Coins, FileText, GitBranch, BarChart3, Play } from "lucide-react"
+import { Menu, Activity, ScanQrCode, Database, DollarSign, Coins, ArrowRightToLine, FileText, BarChart3, Play } from "lucide-react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import MobileNavigation from "@/components/mobile-navigation"
 import QuickActionCard from "@/components/quick-action-card"
@@ -309,7 +309,7 @@ export default function Dashboard() {
                 {/* Header */}
                 <header className="border-b-4 border-black p-4 sm:p-6 bg-white/40 backdrop-blur-md">
                     <div className="flex justify-between items-center gap-4">
-                        <div className="flex items-center gap-x-3">
+                        <div className="flex items-center gap-x-5">
                             <Image
                                 src="/logo.png"
                                 alt="Ethereum Indexer Logo"
@@ -368,21 +368,21 @@ export default function Dashboard() {
                                 href="/trace"
                                 className="flex items-center gap-2 text-lg font-bold p-3 hover:bg-black/10 rounded-xl"
                             >
-                                <GitBranch className="h-5 w-5" />
+                                <ArrowRightToLine className="h-5 w-5" />
                                 Trace
                             </Link>
                             <Link
                                 href="/transactions"
                                 className="flex items-center gap-2 text-lg font-bold p-3 hover:bg-black/10 rounded-xl"
                             >
-                                <Search className="h-5 w-5" />
+                                <ScanQrCode className="h-5 w-5" />
                                 Transactions
                             </Link>
                             <Link
                                 href="/balances"
                                 className="flex items-center gap-2 text-lg font-bold p-3 hover:bg-black/10 rounded-xl"
                             >
-                                <Coins className="h-5 w-5" />
+                                <DollarSign className="h-5 w-5" />
                                 Balances
                             </Link>
                             <Link
@@ -417,7 +417,7 @@ export default function Dashboard() {
                 <QuickActionCard
                   title="Get Balance"
                   description="Check balance by date"
-                  icon={Coins}
+                  icon={DollarSign}
                   onClick={() => handleQuickAction("get-balance")}
                 />
                 <QuickActionCard

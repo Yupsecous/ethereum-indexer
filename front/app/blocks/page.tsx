@@ -218,7 +218,7 @@ export default function BlocksPage() {
         {/* Header */}
         <header className="border-b-4 border-black p-4 sm:p-6 bg-white/40 backdrop-blur-md">
           <div className="flex justify-between items-center gap-4">
-            <div className="flex items-center gap-x-3">
+            <div className="flex items-center gap-x-5">
               <Image
                 src="/logo.png"
                 alt="Ethereum Indexer Logo"

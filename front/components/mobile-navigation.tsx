@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { BarChart3, Database, Search, Coins, FileText, GitBranch } from "lucide-react"
+import { BarChart3, Database, Search, Coins, FileText, ArrowRightToLine } from "lucide-react"
 
 export default function MobileNavigation() {
   return (
@@ -35,7 +35,7 @@ export default function MobileNavigation() {
             ERC-20
           </Link>
           <Link href="/trace" className="flex items-center gap-2 text-lg font-bold p-3 hover:bg-black/10 rounded-xl">
-            <GitBranch className="h-5 w-5" />
+            <ArrowRightToLine className="h-5 w-5" />
             Trace
           </Link>
         </nav>
