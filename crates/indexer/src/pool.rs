@@ -74,6 +74,13 @@ impl ProviderPool {
         drop(permit);
 
         self.stats[idx].record(res.is_ok(), t0.elapsed());
-        Ok(res?)
+        let value: serde_json::Value = res?;
+
+        // Basic validation - ensure we have valid JSON structure
+        if method == "trace_filter" && value.is_string() {
+            anyhow::bail!("Invalid trace_filter response: got string instead of array/null");
+        }
+
+        Ok(value)
     }
 }

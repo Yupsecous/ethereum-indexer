@@ -59,9 +59,15 @@ pub async fn run_trace_filter(
                                 start,
                             );
                         }
-                        Err(e) => error!("decode error: {}", e),
+                        Err(e) => {
+                            error!("Decode error for range {}-{}: {}", range.from, range.to, e);
+                            error!("Skipping malformed response to prevent data corruption");
+                            completed_blocks += range.to - range.from + 1;
+                        }
                     },
-                    Err(e) => error!("{}", e),
+                    Err(e) => {
+                        error!("RPC error: {}", e);
+                    }
                 }
                 (completed_blocks, total_txns)
             },
