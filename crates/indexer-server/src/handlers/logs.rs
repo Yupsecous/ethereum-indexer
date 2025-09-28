@@ -312,7 +312,7 @@ fn validate_block_range(from_block: u64, to_block: u64) -> Result<(), StatusCode
     }
 
     let range_size = to_block - from_block + 1;
-    if range_size > 10_000 {
+    if range_size > 100_000 {
         info!("Range too large: {} blocks (max 10,000)", range_size);
         return Err(StatusCode::BAD_REQUEST);
     }
