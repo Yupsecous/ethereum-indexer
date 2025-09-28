@@ -89,12 +89,16 @@ case $choice in
     1)
         RPC_URL="https://eth.drpc.org"
         CHUNK_SIZE="25000"
-        echo -e "${GREEN}Selected: DRPC${RESET}"
+        PARALLEL_PER_RPC="5"
+        MAX_TRACE_RESULTS="5000"
+        echo -e "${GREEN}Selected: DRPC (optimized for high-speed)${RESET}"
         ;;
     2)
         RPC_URL="https://reth-ethereum.ithaca.xyz/rpc"
         CHUNK_SIZE="100"
-        echo -e "${GREEN}Selected: Ithaca RPC${RESET}"
+        PARALLEL_PER_RPC="8"
+        MAX_TRACE_RESULTS="10000"
+        echo -e "${GREEN}Selected: Ithaca RPC (balanced settings)${RESET}"
         ;;
     3)
         echo
@@ -120,9 +124,37 @@ case $choice in
             CHUNK_SIZE="$CUSTOM_CHUNK"
         fi
 
+        echo -e "${YELLOW}Enter parallel requests per RPC (1-20, default: 8):${RESET}"
+        read -p "Parallel per RPC: " CUSTOM_PARALLEL
+
+        # Validate parallel per RPC
+        if [[ -z "$CUSTOM_PARALLEL" ]]; then
+            PARALLEL_PER_RPC="8"
+        elif [[ ! "$CUSTOM_PARALLEL" =~ ^[0-9]+$ ]] || [ "$CUSTOM_PARALLEL" -lt 1 ] || [ "$CUSTOM_PARALLEL" -gt 20 ]; then
+            echo -e "${RED}Invalid parallel value. Must be a number between 1 and 20${RESET}"
+            exit 1
+        else
+            PARALLEL_PER_RPC="$CUSTOM_PARALLEL"
+        fi
+
+        echo -e "${YELLOW}Enter max trace results (1000-50000, default: 10000):${RESET}"
+        read -p "Max trace results: " CUSTOM_MAX_RESULTS
+
+        # Validate max results
+        if [[ -z "$CUSTOM_MAX_RESULTS" ]]; then
+            MAX_TRACE_RESULTS="10000"
+        elif [[ ! "$CUSTOM_MAX_RESULTS" =~ ^[0-9]+$ ]] || [ "$CUSTOM_MAX_RESULTS" -lt 1000 ] || [ "$CUSTOM_MAX_RESULTS" -gt 50000 ]; then
+            echo -e "${RED}Invalid max results. Must be a number between 1000 and 50000${RESET}"
+            exit 1
+        else
+            MAX_TRACE_RESULTS="$CUSTOM_MAX_RESULTS"
+        fi
+
         echo -e "${GREEN}Selected: Custom RPC${RESET}"
         echo -e "${GREEN}URL: $RPC_URL${RESET}"
         echo -e "${GREEN}Chunk size: $CHUNK_SIZE${RESET}"
+        echo -e "${GREEN}Parallel per RPC: $PARALLEL_PER_RPC${RESET}"
+        echo -e "${GREEN}Max trace results: $MAX_TRACE_RESULTS${RESET}"
         ;;
     *)
         echo -e "${RED}Invalid choice. Exiting.${RESET}"
@@ -144,11 +176,15 @@ echo -e "${GREEN}✓ Created $FRONT_DIR/.env with chunk size: $CHUNK_SIZE${RESET
 echo
 echo -e "${BOLD}${GREEN}Environment configured successfully!${RESET}"
 
-# Export RPC_URLS for server
+# Export environment variables for server
 export RPC_URLS="$RPC_URL"
+export PARALLEL_PER_RPC="$PARALLEL_PER_RPC"
+export MAX_TRACE_RESULTS="$MAX_TRACE_RESULTS"
 
 echo -e "${GREEN}✓ Using RPC: $RPC_URL${RESET}"
-echo -e "${GREEN}✓ RPC_URLS exported for server${RESET}"
+echo -e "${GREEN}✓ Parallel per RPC: $PARALLEL_PER_RPC${RESET}"
+echo -e "${GREEN}✓ Max trace results: $MAX_TRACE_RESULTS${RESET}"
+echo -e "${GREEN}✓ Environment variables exported for server${RESET}"
 echo
 
 echo -e "${BOLD}${GREEN}Setup complete!${RESET}"
@@ -176,15 +212,15 @@ case $(echo "$start_server" | tr '[:upper:]' '[:lower:]') in
         echo -e "${BOLD}${BLUE}================================${RESET}"
         echo
 
-        # Execute server
-        RPC_URLS="$RPC_URL" cargo run --release --package indexer-server
+        # Execute server with all environment variables
+        RPC_URLS="$RPC_URL" PARALLEL_PER_RPC="$PARALLEL_PER_RPC" MAX_TRACE_RESULTS="$MAX_TRACE_RESULTS" cargo run --release --package indexer-server
         ;;
     *)
         echo
         echo -e "${BOLD}Manual startup instructions:${RESET}"
         echo
         echo -e "${YELLOW}1.${RESET} ${BOLD}In this terminal${RESET}, start the server:"
-        echo -e "   ${PURPLE}RPC_URLS=\"$RPC_URL\" cargo run --release --package indexer-server${RESET}"
+        echo -e "   ${PURPLE}RPC_URLS=\"$RPC_URL\" PARALLEL_PER_RPC=\"$PARALLEL_PER_RPC\" MAX_TRACE_RESULTS=\"$MAX_TRACE_RESULTS\" cargo run --release --package indexer-server${RESET}"
         echo
         echo -e "${YELLOW}2.${RESET} ${BOLD}Open a new terminal${RESET} and navigate to the frontend:"
         echo -e "   ${PURPLE}cd $FRONT_DIR${RESET}"
