@@ -151,18 +151,50 @@ echo -e "${GREEN}✓ Using RPC: $RPC_URL${RESET}"
 echo -e "${GREEN}✓ RPC_URLS exported for server${RESET}"
 echo
 
-echo -e "${BOLD}Next steps:${RESET}"
+echo -e "${BOLD}${GREEN}Setup complete!${RESET}"
 echo
-echo -e "${YELLOW}1.${RESET} ${BOLD}In this terminal${RESET}, start the server:"
-echo -e "   ${PURPLE}RPC_URLS=\"$RPC_URL\" cargo run --release --package indexer-server${RESET}"
+echo -e "${BOLD}In this terminal, we will start the server.${RESET}"
 echo
-echo -e "${YELLOW}2.${RESET} ${BOLD}Open a new terminal${RESET} and navigate to the frontend:"
-echo -e "   ${PURPLE}cd $FRONT_DIR${RESET}"
-echo
-echo -e "${YELLOW}3.${RESET} ${BOLD}In the new terminal${RESET}, start the frontend:"
-echo -e "   ${PURPLE}npm run start:all${RESET}"
-echo
-echo -e "${YELLOW}4.${RESET} Open your browser and visit:"
-echo -e "   ${CYAN}http://localhost:3000${RESET}"
-echo
-echo -e "${BOLD}Note:${RESET} Use ${PURPLE}Ctrl+C${RESET} to stop any running process"
+
+# Server startup prompt
+read -p "Would you like to start the server now? (y/N): " start_server
+
+case $(echo "$start_server" | tr '[:upper:]' '[:lower:]') in
+    y|yes)
+        echo
+        echo -e "${BOLD}Starting server...${RESET}"
+        echo -e "${GREEN}Server will run with: RPC_URLS=\"$RPC_URL\"${RESET}"
+        echo -e "${YELLOW}Use ${PURPLE}Ctrl+C${RESET}${YELLOW} to stop the server${RESET}"
+        echo
+        echo -e "${BOLD}Next steps after server starts:${RESET}"
+        echo -e "${YELLOW}1.${RESET} Open a new terminal and navigate to: ${PURPLE}cd $FRONT_DIR${RESET}"
+        echo -e "${YELLOW}2.${RESET} Start the frontend: ${PURPLE}npm run start:all${RESET}"
+        echo -e "${YELLOW}3.${RESET} Visit: ${CYAN}http://localhost:3000${RESET}"
+        echo
+        echo -e "${BOLD}${BLUE}================================${RESET}"
+        echo -e "${BOLD}${BLUE}  Starting Ethereum Indexer     ${RESET}"
+        echo -e "${BOLD}${BLUE}================================${RESET}"
+        echo
+
+        # Execute server
+        RPC_URLS="$RPC_URL" cargo run --release --package indexer-server
+        ;;
+    *)
+        echo
+        echo -e "${BOLD}Manual startup instructions:${RESET}"
+        echo
+        echo -e "${YELLOW}1.${RESET} ${BOLD}In this terminal${RESET}, start the server:"
+        echo -e "   ${PURPLE}RPC_URLS=\"$RPC_URL\" cargo run --release --package indexer-server${RESET}"
+        echo
+        echo -e "${YELLOW}2.${RESET} ${BOLD}Open a new terminal${RESET} and navigate to the frontend:"
+        echo -e "   ${PURPLE}cd $FRONT_DIR${RESET}"
+        echo
+        echo -e "${YELLOW}3.${RESET} ${BOLD}In the new terminal${RESET}, start the frontend:"
+        echo -e "   ${PURPLE}npm run start:all${RESET}"
+        echo
+        echo -e "${YELLOW}4.${RESET} Open your browser and visit:"
+        echo -e "   ${CYAN}http://localhost:3000${RESET}"
+        echo
+        echo -e "${BOLD}Note:${RESET} Use ${PURPLE}Ctrl+C${RESET} to stop any running process"
+        ;;
+esac

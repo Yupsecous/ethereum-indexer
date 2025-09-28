@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
     Menu,
     ArrowRightToLine,
@@ -535,6 +536,47 @@ export default function TracePage() {
                                     </div>
                                 </CardContent>
                             </Card>
+
+                            {loading && (
+                                <Card className="border-2 border-black rounded-xl">
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <ArrowRightToLine className="h-5 w-5" />
+                                            Loading Trace Results...
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-0">
+                                        <div className="p-6 space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <Skeleton className="h-4 w-32" />
+                                                <Skeleton className="h-4 w-24" />
+                                            </div>
+                                            <div className="space-y-3">
+                                                {Array.from({ length: 5 }).map((_, idx) => (
+                                                    <div key={idx} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                                                        <div className="flex items-center gap-4 flex-1">
+                                                            <Skeleton className="h-4 w-32" />
+                                                            <Skeleton className="h-4 w-16" />
+                                                            <Skeleton className="h-4 w-24" />
+                                                            <Skeleton className="h-4 w-24" />
+                                                            <Skeleton className="h-4 w-20" />
+                                                        </div>
+                                                        <Skeleton className="h-8 w-8 rounded-lg" />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                                                <Skeleton className="h-4 w-48" />
+                                                <div className="flex gap-2">
+                                                    <Skeleton className="h-8 w-16" />
+                                                    <Skeleton className="h-8 w-16" />
+                                                    <Skeleton className="h-8 w-16" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
 
                             {result && (
                                 <Card className="border-2 border-black rounded-xl">

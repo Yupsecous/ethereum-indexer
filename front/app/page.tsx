@@ -586,8 +586,8 @@ export default function Dashboard() {
                                                         onClick={() => rerunQuery(query)}
                                                         className="bg-[#F86753] hover:bg-[#fb8c7d] text-white rounded-xl border-2 border-black font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                                                     >
-                                                        <Play className="h-4 w-4" />
-                                                        Re-run
+                                                        <Play className="h-4 w-4 " />
+                                                        Re-run Query
                                                     </Button>
                                                 </div>
                                             ))}
