@@ -33,6 +33,16 @@ The project consists of three main Rust crates and a frontend application:
 -   `crates/indexer-server`: A web server exposing the indexer's functionality via a REST API.
 -   `front`: A web application for displaying the collected data in a human-readable format.
 
+For a deeper dive into the technical design, see the [architecture documentation](./docs/ARCHITECTURE.md).
+
+## Documentation
+
+The `/docs` directory contains detailed information about the project:
+
+-   [**`ARCHITECTURE.md`**](./docs/ARCHITECTURE.md): A deep dive into the `indexer` crate's architecture and its core design principles.
+-   [**`CLI_GUIDE.md`**](./docs/CLI_GUIDE.md): A comprehensive guide to using the command-line interface.
+-   [**`SERVER_API.md`**](./docs/SERVER_API.md): Complete reference for the web server's REST API endpoints.
+
 ## Performance
 
 The indexer's high performance is achieved by using the `trace_filter` RPC method, which allows for fetching transaction data in large, parallelized block chunks.
