@@ -79,3 +79,9 @@ pub struct LogsResponse {
     pub logs: Vec<serde_json::Value>,
     pub metadata: serde_json::Value,
 }
+
+#[derive(Serialize)]
+pub struct RpcInfoResponse {
+    pub rpc_urls: Vec<String>,
+    pub parallel_per_rpc: usize,
+}

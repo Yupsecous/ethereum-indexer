@@ -6,7 +6,7 @@ use axum::{Router, routing::get};
 use handlers::{
     get_balance_at_date, get_block_by_number, get_erc20_balance_at_date, get_logs_erc20_token,
     get_logs_erc20_wallet, get_logs_general, get_transaction_by_hash, get_transaction_receipt,
-    ping, trace_filter_no_address, trace_filter_with_address,
+    ping, rpc_info, trace_filter_no_address, trace_filter_with_address,
 };
 use indexer::EngineBuilder;
 use std::sync::Arc;
@@ -40,6 +40,7 @@ async fn main() -> anyhow::Result<()> {
 
     let app = Router::new()
         .route("/ping", get(ping))
+        .route("/api/rpc-info", get(rpc_info))
         .route("/api/trace/filter", get(trace_filter_no_address))
         .route(
             "/api/trace/filter/{address}",
