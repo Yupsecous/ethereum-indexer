@@ -49,11 +49,11 @@ graph TD
     G2 --> H;
     G3 --> H;
 
-    style A fill:#f9f,stroke:#333,stroke-width:2px
-    style B fill:#ccf,stroke:#333,stroke-width:2px,color:#fff
-    style C fill:#9cf,stroke:#333,stroke-width:2px,color:#fff
-    style D fill:#9f9,stroke:#333,stroke-width:2px,color:#fff
-    style E fill:#f96,stroke:#333,stroke-width:2px,color:#fff
+    style A fill:#f9f,stroke:#333,stroke-width:2px,color:#0D1118
+    style B fill:#ccf,stroke:#333,stroke-width:2px,color:#0D1118
+    style C fill:#9cf,stroke:#333,stroke-width:2px,color:#0D1118
+    style D fill:#9f9,stroke:#333,stroke-width:2px,color:#0D1118
+    style E fill:#f96,stroke:#333,stroke-width:2px,color:#0D1118
 ```
 
 ### 1. API Layer (`/api`)
