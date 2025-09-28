@@ -1,6 +1,10 @@
+<p align="center">
+  <img alt="Ethereum Indexer" src="./docs/ethereum_indexer.png" width="700">
+</p>
+
 # Ethereum Indexer
 
-This project is an Ethereum indexer designed to crawl transaction data for specific wallet addresses starting from a given block.
+Ethereum blockchain indexer designed to crawl transaction data for specific wallet addresses starting from a given block.
 
 ## Quick Start
 
@@ -24,7 +28,19 @@ This script will:
 - Configure the frontend environment with optimal chunk sizes
 - Provide step-by-step instructions to start the application
 
-## Architecture
+### RPC Provider Requirements
+
+> [!IMPORTANT]
+> Your RPC provider must support the `trace_filter` method for transaction searching to work.
+
+**Performance Notes**:
+- Large chunk sizes (50k-100k) may cause timeouts with some providers after some calls
+- If you experience timeouts, reduce chunk size in the frontend dashboard and/or change rpc provider
+- Free RPC tiers often have rate limits that may affect performance
+
+For more specific queries and examples, see the scripts provided in the `/scripts` directory.
+
+## Structure
 
 The project consists of three main Rust crates and a frontend application:
 
@@ -32,8 +48,6 @@ The project consists of three main Rust crates and a frontend application:
 -   `crates/indexer-cli`: A command-line interface for interacting with the indexer.
 -   `crates/indexer-server`: A web server exposing the indexer's functionality via a REST API.
 -   `front`: A web application for displaying the collected data in a human-readable format.
-
-For a deeper dive into the technical design, see the [architecture documentation](./docs/ARCHITECTURE.md).
 
 ## Documentation
 
@@ -49,12 +63,13 @@ The indexer's high performance is achieved by using the `trace_filter` RPC metho
 
 The choice of RPC provider is critical. A fast provider that supports `trace_filter` with large block ranges (e.g., `eth.drpc.org`) is recommended for maximum speed. The current RPC pool implementation uses a round-robin strategy, so using a single fast RPC is more effective than mixing fast and slow ones.
 
-## Usage
+## Basic Usage
 
 To run the web server, set your RPC provider URL and start the application:
 
 ```bash
-export RPC_URLS="https://your-fast-rpc-provider.com/token"
+RPC_URLS="https://your-fast-rpc-provider.com/token" \
+PARALLEL_PER_RPC=5 \
 cargo run --release --package indexer-server
 ```
 
@@ -63,13 +78,3 @@ To run the web app, navigate to the `/front` directory and run the command:
 npm run start:all
 ```
 
-### RPC Provider Requirements
-
-**Critical**: Your RPC provider must support the `trace_filter` method for transaction searching to work.
-
-**Performance Notes**:
-- Large chunk sizes (50k-100k) may cause timeouts with some providers after some calls
-- If you experience timeouts, reduce chunk size in the frontend dashboard and/or change rpc provider
-- Free RPC tiers often have rate limits that may affect performance
-
-For more specific queries and examples, see the scripts provided in the `/scripts` directory.
