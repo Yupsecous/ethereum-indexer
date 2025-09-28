@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+## Use to measure block/sec
+
 cargo run --release -p indexer-cli -- \
     --rpc https://eth.drpc.org \
     --method trace-filter \
