@@ -30,9 +30,17 @@ async fn main() -> anyhow::Result<()> {
         info!("- {}", rpc_urls[url]);
     }
 
+    // Configure concurrency based on environment or use safe defaults
+    let parallel_per_rpc = std::env::var("PARALLEL_PER_RPC")
+        .ok()
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(8); // Reduced from 20 to 8 for memory stability
+
+    info!("Parallel requests per RPC: {}", parallel_per_rpc);
+
     let engine = EngineBuilder::new()
         .rpc_urls(rpc_urls)
-        .parallel_per_rpc(20)
+        .parallel_per_rpc(parallel_per_rpc)
         .retry(10, 1000, 500)
         .build()?;
 

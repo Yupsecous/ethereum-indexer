@@ -75,21 +75,53 @@ async fn trace_filter_impl(
         }
     };
 
+    // Configure response size limits
+    let max_results = std::env::var("MAX_TRACE_RESULTS")
+        .ok()
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(10_000); // Default limit of 10,000 traces
+
     let stream = order_by_range(engine.run(work_items), plan.range.from);
     let mut results = Vec::new();
+    let mut total_processed = 0;
 
     tokio::pin!(stream);
     while let Some(item) = stream.next().await {
         match item {
-            Ok((_range, data)) => {
-                if let Ok(traces) = TraceFilterPlan::decode(data) {
-                    // Filter for non-internal transactions only
-                    let filtered_traces: Vec<_> = traces
-                        .into_iter()
-                        .filter(|t| t.trace.trace_address.is_empty())
-                        .collect();
+            Ok((range, data)) => {
+                match TraceFilterPlan::decode(data) {
+                    Ok(traces) => {
+                        // Filter for non-internal transactions only
+                        let filtered_traces: Vec<_> = traces
+                            .into_iter()
+                            .filter(|t| t.trace.trace_address.is_empty())
+                            .collect();
 
-                    results.extend(filtered_traces);
+                        // Check if adding these results would exceed our limit
+                        if results.len() + filtered_traces.len() > max_results {
+                            let remaining = max_results - results.len();
+                            if remaining > 0 {
+                                results.extend(filtered_traces.into_iter().take(remaining));
+                            }
+
+                            info!(
+                                "Result limit reached: {} traces (limit: {}). Truncating response.",
+                                results.len(),
+                                max_results
+                            );
+                            break;
+                        }
+
+                        results.extend(filtered_traces);
+                        total_processed += 1;
+                    }
+                    Err(e) => {
+                        info!(
+                            "Decode error for range {}-{}: {}, skipping malformed response",
+                            range.from, range.to, e
+                        );
+                        // Continue processing other ranges instead of silent failure
+                    }
                 }
             }
             Err(e) => {
@@ -99,6 +131,18 @@ async fn trace_filter_impl(
         }
     }
 
-    info!("Returning {} filtered traces", results.len());
-    Ok(Json(serde_json::to_value(results).unwrap()))
+    info!(
+        "Returning {} filtered traces from {} processed ranges",
+        results.len(),
+        total_processed
+    );
+
+    // Safe JSON serialization with better error handling
+    match serde_json::to_value(results) {
+        Ok(json_value) => Ok(Json(json_value)),
+        Err(e) => {
+            info!("JSON serialization error: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
 }
