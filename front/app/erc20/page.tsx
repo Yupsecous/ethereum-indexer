@@ -656,14 +656,20 @@ export default function Erc20Page() {
                         </div>
 
                         <div className="hidden sm:flex items-center gap-3">
-                            <Button className="bg-black hover:bg-black/80 text-white rounded-xl border-2 border-black font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                                API Docs
+                            <Button
+                                asChild
+                                className="bg-black hover:bg-black/80 text-white rounded-xl border-2 border-black font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                            >
+                                <Link href="https://github.com/navahas/ethereum-indexer/blob/master/README.md" target="_blank">
+                                    API Docs
+                                </Link>
                             </Button>
                             <Button
+                                asChild
                                 variant="outline"
                                 className="rounded-xl border-2 border-black font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-transparent"
                             >
-                                Settings
+                                <Link href="/">Settings</Link>
                             </Button>
                         </div>
                     </div>
@@ -712,7 +718,7 @@ export default function Erc20Page() {
                     <div className="overflow-auto bg-[#F1F1F1] p-4 sm:p-6">
                         <div className="mb-6">
                             <h2 className="text-2xl font-black mb-2">ERC-20 TRANSFERS TRACKER</h2>
-                            <p className="text-muted-foreground">Track ERC-20 token transfers by wallet or token contract</p>
+                            <p className="text-muted-foreground">Track ERC-20 token transfers by wallet, token contract, or check the balance of a specific wallet.</p>
                         </div>
 
                         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

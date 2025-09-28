@@ -247,14 +247,20 @@ export default function BalancesPage() {
                         </div>
 
                         <div className="hidden sm:flex items-center gap-3">
-                            <Button className="bg-black hover:bg-black/80 text-white rounded-xl border-2 border-black font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                                API Docs
+                            <Button
+                                asChild
+                                className="bg-black hover:bg-black/80 text-white rounded-xl border-2 border-black font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                            >
+                                <Link href="https://github.com/navahas/ethereum-indexer/blob/master/README.md" target="_blank">
+                                    API Docs
+                                </Link>
                             </Button>
                             <Button
+                                asChild
                                 variant="outline"
                                 className="rounded-xl border-2 border-black font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-transparent"
                             >
-                                Settings
+                                <Link href="/">Settings</Link>
                             </Button>
                         </div>
                     </div>
