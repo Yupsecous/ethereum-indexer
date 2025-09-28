@@ -13,12 +13,13 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import {
     Menu,
-    Coins,
     BarChart3,
     Database,
-    Search,
+    ScanQrCode,
+    Coins,
+    DollarSign,
     FileText,
-    GitBranch,
+    ArrowRightToLine,
     Play,
     ChevronDown,
     ChevronRight,
@@ -221,7 +222,7 @@ export default function BalancesPage() {
                 {/* Header */}
                 <header className="border-b-4 border-black p-4 sm:p-6 bg-white/40 backdrop-blur-md">
                     <div className="flex justify-between items-center gap-4">
-                        <div className="flex items-center gap-x-3">
+                        <div className="flex items-center gap-x-5">
                             <Image
                                 src="/logo.png"
                                 alt="Ethereum Indexer Logo"
@@ -278,21 +279,21 @@ export default function BalancesPage() {
                                 href="/trace"
                                 className="flex items-center gap-2 text-lg font-bold p-3 hover:bg-black/10 rounded-xl"
                             >
-                                <GitBranch className="h-5 w-5" />
+                                <ArrowRightToLine className="h-5 w-5" />
                                 Trace
                             </Link>
                             <Link
                                 href="/transactions"
                                 className="flex items-center gap-2 text-lg font-bold p-3 hover:bg-black/10 rounded-xl"
                             >
-                                <Search className="h-5 w-5" />
+                                <ScanQrCode className="h-5 w-5" />
                                 Transactions
                             </Link>
                             <Link
                                 href="/balances"
                                 className="flex items-center gap-2 text-lg font-bold p-3 bg-black text-white rounded-xl"
                             >
-                                <Coins className="h-5 w-5" />
+                                <DollarSign className="h-5 w-5" />
                                 Balances
                             </Link>
                             <Link
@@ -316,7 +317,7 @@ export default function BalancesPage() {
                             <Card className="border-2 border-black rounded-xl">
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
-                                        <Coins className="h-5 w-5" />
+                                        <DollarSign className="h-5 w-5" />
                                         Balance Query
                                     </CardTitle>
                                 </CardHeader>
