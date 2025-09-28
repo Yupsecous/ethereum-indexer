@@ -282,14 +282,38 @@ export class EthereumIndexerClient {
 
     const response = await fetch(url.toString())
 
+    // Always check response status first
     if (!response.ok) {
+      let errorMessage = response.statusText
+
+      // Try to get error details from response body
+      try {
+        const errorText = await response.text()
+        if (errorText) {
+          errorMessage = `${response.statusText}: ${errorText.slice(0, 200)}${errorText.length > 200 ? '...' : ''}`
+        }
+      } catch {
+        // Ignore errors reading response body
+      }
+
       throw new ApiError({
         status: response.status,
-        message: response.statusText,
+        message: errorMessage,
       })
     }
 
-    return response.json()
+    // Parse JSON with proper error handling
+    try {
+      return await response.json()
+    } catch (parseError) {
+      // Get response text for better error context
+      const responseText = await response.text().catch(() => 'Unable to read response')
+
+      throw new ApiError({
+        status: 422, // Unprocessable Entity
+        message: `Invalid JSON response from server. Response: ${responseText.slice(0, 300)}${responseText.length > 300 ? '...' : ''}`,
+      })
+    }
   }
 }
 

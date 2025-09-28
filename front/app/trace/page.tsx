@@ -49,6 +49,7 @@ export default function TracePage() {
     const [currentPage, setCurrentPage] = useState(0)
     const [loading, setLoading] = useState(false)
     const [result, setResult] = useState<TraceResult[] | null>(null)
+    const [error, setError] = useState<string | null>(null)
     const [expandedTraces, setExpandedTraces] = useState<Set<number>>(new Set())
     const [debugInfo, setDebugInfo] = useState<{ url?: string; params?: any; responseSize?: number }>({})
     const [errors, setErrors] = useState<{ address?: string; startblock?: string }>({})
@@ -146,6 +147,7 @@ export default function TracePage() {
         setErrors({})
         setLoading(true)
         setResult(null)
+        setError(null)
 
         try {
             const baseStart = Number.parseInt(startblock)
@@ -190,9 +192,11 @@ export default function TracePage() {
             queries.unshift(query)
             localStorage.setItem("ethereum-indexer-queries", JSON.stringify(queries.slice(0, 10)))
         } catch (error: any) {
+            const errorMessage = error.message || "Failed to fetch trace data"
+            setError(errorMessage)
             toast({
                 title: "Error executing trace filter",
-                description: error.message || "Failed to fetch trace data",
+                description: errorMessage,
                 variant: "destructive",
             })
         } finally {
@@ -572,6 +576,53 @@ export default function TracePage() {
                                                     <Skeleton className="h-8 w-16" />
                                                     <Skeleton className="h-8 w-16" />
                                                 </div>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {error && (
+                                <Card className="border-2 border-red-500 rounded-xl bg-red-50">
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2 text-red-700">
+                                            <ArrowRightToLine className="h-5 w-5" />
+                                            Error Executing Trace Filter
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="space-y-4">
+                                            <div className="p-4 bg-red-100 border border-red-300 rounded-lg">
+                                                <p className="font-medium text-red-800 mb-2">Request Failed</p>
+                                                <p className="text-red-700">{error}</p>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <p className="font-medium text-red-800">Possible causes:</p>
+                                                <ul className="list-disc list-inside text-red-700 space-y-1 text-sm">
+                                                    <li>Invalid address format or block number</li>
+                                                    <li>RPC endpoint temporarily unavailable</li>
+                                                    <li>Network connectivity issues</li>
+                                                    <li>Server processing error or timeout</li>
+                                                    <li>Block range too large or contains malformed data</li>
+                                                </ul>
+                                            </div>
+
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    onClick={() => setError(null)}
+                                                    variant="outline"
+                                                    className="border-2 border-red-500 text-red-700 hover:bg-red-100 rounded-lg"
+                                                >
+                                                    Dismiss
+                                                </Button>
+                                                <Button
+                                                    onClick={() => handleTraceQuery(currentPage)}
+                                                    disabled={loading}
+                                                    className="bg-red-600 hover:bg-red-700 text-white border-2 border-red-700 rounded-lg"
+                                                >
+                                                    Retry Query
+                                                </Button>
                                             </div>
                                         </div>
                                     </CardContent>
