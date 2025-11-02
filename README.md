@@ -1,4 +1,4 @@
-```markdown
+
 <p align="center">
   <img alt="Ethereum Indexer" src="./docs/ethereum_indexer.png" width="700">
 </p>
@@ -104,4 +104,4 @@ The dashboard will be available at `http://localhost:3000`.
 ---
 
 *Fast. Reliable. Developer-friendly.*
-```
+
