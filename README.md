@@ -1,71 +1,90 @@
+```markdown
 <p align="center">
   <img alt="Ethereum Indexer" src="./docs/ethereum_indexer.png" width="700">
 </p>
 
 # Ethereum Indexer
 
-Ethereum blockchain indexer designed to crawl transaction data for specific wallet addresses starting from a given block.
+A high-performance Ethereum blockchain indexer that crawls transaction data for **specific wallet addresses** starting from a **user-defined block**.
 
-## Quick Start
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- **Rust** (stable version) - [Install Rust](https://rustup.rs/)
-- **Node.js** (>=18) - [Install Node.js](https://nodejs.org/)
-- **npm** (comes with Node.js)
+- **Rust** (stable) — [rustup.rs](https://rustup.rs/)
+- **Node.js** (>= v18) — [nodejs.org](https://nodejs.org/)
+- **npm** (included with Node.js)
 
-### Setup
+### One-Click Setup
 
-For a guided setup with automatic environment configuration:
+Run the guided setup script for automatic configuration:
 
 ```bash
 ./scripts/setup.sh
 ```
 
 This script will:
-- Verify all prerequisites are installed
-- Let you choose an RPC provider (DRPC, Ithaca, or custom)
-- Configure the frontend environment with optimal chunk sizes
-- Provide step-by-step instructions to start the application
 
-### RPC Provider Requirements
+- Validate all required tools
+- Prompt you to select an RPC provider (**DRPC**, **Ithaca**, or **custom**)
+- Optimize frontend chunk sizes based on your provider
+- Guide you through launching the full application
+
+---
 
 > [!IMPORTANT]
-> Your RPC provider must support the `trace_filter` method for transaction searching to work.
+> Your RPC provider **must support** the `trace_filter` method for transaction tracing to function.
 
-**Performance Notes**:
-- Large chunk sizes (50k-100k) may cause timeouts with some providers after some calls
-- If you experience timeouts, reduce chunk size in the frontend dashboard and/or change rpc provider
-- Free RPC tiers often have rate limits that may affect performance
+### Performance Tips
 
-For more specific queries and examples, see the scripts provided in the `/scripts` directory.
+| Issue | Recommendation |
+|------|----------------|
+| Timeouts on large ranges | Reduce **chunk size** in the frontend dashboard |
+| Slow indexing | Use a **fast `trace_filter`-enabled RPC** (e.g., `eth.drpc.org`) |
+| Rate limiting | Avoid free-tier public endpoints for heavy use |
 
-## Structure
+See `/scripts` for advanced examples and tuning utilities.
 
-The project consists of three main Rust crates and a frontend application:
+---
 
--   `crates/indexer`: The core library responsible for crawling the blockchain.
--   `crates/indexer-cli`: A command-line interface for interacting with the indexer.
--   `crates/indexer-server`: A web server exposing the indexer's functionality via a REST API.
--   `front`: A web application for displaying the collected data in a human-readable format.
+## 📂 Project Structure
 
-## Documentation
+| Component | Description |
+|---------|-------------|
+| `crates/indexer` | Core blockchain crawling engine |
+| `crates/indexer-cli` | CLI tool for direct indexer interaction |
+| `crates/indexer-server` | REST API server exposing indexer features |
+| `front/` | Web dashboard for visualized transaction data |
 
-The `/docs` directory contains detailed information about the project:
+---
 
--   [**`ARCHITECTURE.md`**](./docs/ARCHITECTURE.md): A deep dive into the `indexer` crate's architecture and its core design principles.
--   [**`CLI_GUIDE.md`**](./docs/CLI_GUIDE.md): A comprehensive guide to using the command-line interface.
--   [**`SERVER_API.md`**](./docs/SERVER_API.md): Complete reference for the web server's REST API endpoints.
+## 📚 Documentation
 
-## Performance
+All in-depth guides are located in [`/docs`](./docs/):
 
-The indexer's high performance is achieved by using the `trace_filter` RPC method, which allows for fetching transaction data in large, parallelized block chunks.
+- [**`ARCHITECTURE.md`**](./docs/ARCHITECTURE.md) — In-depth design of the indexer core
+- [**`CLI_GUIDE.md`**](./docs/CLI_GUIDE.md) — Full CLI usage reference
+- [**`SERVER_API.md`**](./docs/SERVER_API.md) — Complete REST API endpoint documentation
 
-The choice of RPC provider is critical. A fast provider that supports `trace_filter` with large block ranges (e.g., `eth.drpc.org`) is recommended for maximum speed. The current RPC pool implementation uses a round-robin strategy, so using a single fast RPC is more effective than mixing fast and slow ones.
+---
 
-## Basic Usage
+## ⚡ Performance
 
-To run the web server, set your RPC provider URL and start the application:
+Powered by the efficient `trace_filter` RPC method, the indexer processes **large block ranges in parallel**.
+
+### Best Practices
+
+- Use a **single high-quality RPC** (round-robin pooling favors consistency)
+- Recommended: `eth.drpc.org` or paid Ithaca nodes
+- Avoid mixing slow/free endpoints with fast ones
+
+---
+
+## ▶️ Running the Application
+
+### 1. Start the Backend Server
 
 ```bash
 RPC_URLS="https://your-fast-rpc-provider.com/token" \
@@ -73,8 +92,16 @@ PARALLEL_PER_RPC=5 \
 cargo run --release --package indexer-server
 ```
 
-To run the web app, navigate to the `/front` directory and run the command:
+### 2. Launch the Frontend
+
 ```bash
+cd front
 npm run start:all
 ```
 
+The dashboard will be available at `http://localhost:3000`.
+
+---
+
+*Fast. Reliable. Developer-friendly.*
+```
